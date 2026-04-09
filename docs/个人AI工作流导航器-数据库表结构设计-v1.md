@@ -51,6 +51,14 @@ SQLite 是运行时元数据、关系和查询能力的唯一数据源。
 当前版本采用级联删除策略。  
 当上游实体删除时，相关关系记录、附属记录和从属记录应一并删除。
 
+应用层删除流程补充：
+
+- 删除节点前必须先进行一次确认
+- 若 `summaries/` 非空，则必须进行二次提醒
+- 二次提醒后允许“先转存到 `summaryArchives/` 再删除”或“直接删除”
+- `chatLogs/` 不触发二次提醒
+- 若总结转存失败，则应用层必须中止删除，避免数据库删除与磁盘保护流程不一致
+
 ### 2.6 排序规则
 
 所有排序字段统一采用：
@@ -98,16 +106,17 @@ SQLite 中布尔值统一使用 `INTEGER`，取值约定：
 5. `project_nodes`
 6. `project_node_relations`
 7. `project_node_workflows`
-8. `solutions`
-9. `solution_projects`
-10. `conversation_records`
-11. `insight_records`
-12. `runtime_views`
+8. `project_node_layouts`
+9. `project_viewports`
+10. `solutions`
+11. `solution_projects`
+12. `conversation_records`
+13. `insight_records`
 
 说明：
 
-- `runtime_views` 用于承载当前版本需要持久化的运行时视图状态。
-- 如果后续确定某些运行时状态只保存在内存，也可以把该表改为可选。
+- `project_node_layouts` 和 `project_viewports` 用于承载可同步的 Project 视图配置数据
+- 运行时选中状态不进入共享数据库，而是保存在各端本地缓存中
 
 ---
 
@@ -194,6 +203,7 @@ SQLite 中布尔值统一使用 `INTEGER`，取值约定：
 - 当前版本不对 `target_ref` 建外键，因为它可能引用不同类型对象。
 - `action_type = prompt` 时由应用层校验 `target_ref` 是否存在于 `prompts.id`
 - `action_type = tool` 时由应用层校验 `target_ref` 是否存在于本地工具配置中的 `tool_key`
+- `action_type = link` 当前仅作为预留类型保留，v1 不实现实际执行能力
 
 建议索引：
 
@@ -341,7 +351,74 @@ SQLite 中布尔值统一使用 `INTEGER`，取值约定：
 
 - `dbSyncs/project_node_workflows.csv`
 
-### 5.8 `solutions`
+### 5.8 `project_node_layouts`
+
+用途：保存 Project 节点在画布中的持久化坐标。
+
+建议字段：
+
+| 字段名 | 类型 | 约束 | 说明 |
+|---|---|---|---|
+| `id` | `TEXT` | `PRIMARY KEY` | UUIDv7 |
+| `project_node_id` | `TEXT` | `NOT NULL UNIQUE` | 项目节点 ID |
+| `position_x` | `REAL` | `NOT NULL` | 节点横坐标 |
+| `position_y` | `REAL` | `NOT NULL` | 节点纵坐标 |
+| `created_at` | `TEXT` | `NOT NULL` | 创建时间 |
+| `updated_at` | `TEXT` | `NOT NULL` | 更新时间 |
+
+外键建议：
+
+- `project_node_id` references `project_nodes(id)` on delete cascade
+
+说明：
+
+- 当前版本每个 `ProjectNode` 只维护一组持久化坐标
+- 该表属于可同步视图配置数据，不属于纯本机 UI 状态
+- 坐标不并入 `project_nodes` 主表，避免业务元数据与布局配置混杂
+
+建议索引：
+
+- `idx_project_node_layouts_project_node_id` on `project_node_id`
+
+导出文件对应：
+
+- `dbSyncs/project_node_layouts.csv`
+
+### 5.9 `project_viewports`
+
+用途：保存 Project 画布的最终视角位置与缩放。
+
+建议字段：
+
+| 字段名 | 类型 | 约束 | 说明 |
+|---|---|---|---|
+| `id` | `TEXT` | `PRIMARY KEY` | UUIDv7 |
+| `project_id` | `TEXT` | `NOT NULL UNIQUE` | 项目 ID |
+| `viewport_x` | `REAL` | `NOT NULL` | 视角横向偏移 |
+| `viewport_y` | `REAL` | `NOT NULL` | 视角纵向偏移 |
+| `zoom` | `REAL` | `NOT NULL` | 缩放比例 |
+| `created_at` | `TEXT` | `NOT NULL` | 创建时间 |
+| `updated_at` | `TEXT` | `NOT NULL` | 更新时间 |
+
+外键建议：
+
+- `project_id` references `projects(id)` on delete cascade
+
+说明：
+
+- 当前版本每个 `Project` 只维护一套布局视角
+- 该表属于可同步视图配置数据，不属于纯本机 UI 状态
+- 视角配置不并入 `projects` 主表，避免主实体承担布局职责
+
+建议索引：
+
+- `idx_project_viewports_project_id` on `project_id`
+
+导出文件对应：
+
+- `dbSyncs/project_viewports.csv`
+
+### 5.10 `solutions`
 
 用途：保存方案元数据。
 
@@ -366,7 +443,7 @@ SQLite 中布尔值统一使用 `INTEGER`，取值约定：
 
 - `dbSyncs/solutions.csv`
 
-### 5.9 `solution_projects`
+### 5.11 `solution_projects`
 
 用途：保存方案与项目之间的集合关系。
 
@@ -398,7 +475,7 @@ SQLite 中布尔值统一使用 `INTEGER`，取值约定：
 
 - `dbSyncs/solution_projects.csv`
 
-### 5.10 `conversation_records`
+### 5.12 `conversation_records`
 
 用途：保存节点对话记录目录入口。
 
@@ -420,6 +497,10 @@ SQLite 中布尔值统一使用 `INTEGER`，取值约定：
 
 - 当前设计下，一个节点对应一个对话目录入口
 - 目录内允许有多个实际对话文件
+- 目录内实际文件命名规则固定为 `yyyyMMdd-HHmmss__名称.md`
+- 最新文件仅按文件名中的时间戳判定，不按文件修改时间
+- 不符合命名规则的文件仍允许显示，但不参与“最新文件”判定
+- 若不存在任何符合规则的文件，则由应用层新建一个符合规则的 `.md` 文件作为默认写入目标
 
 建议索引：
 
@@ -429,7 +510,7 @@ SQLite 中布尔值统一使用 `INTEGER`，取值约定：
 
 - `dbSyncs/conversations.csv`
 
-### 5.11 `insight_records`
+### 5.13 `insight_records`
 
 用途：保存节点总结/认知目录入口。
 
@@ -448,6 +529,13 @@ SQLite 中布尔值统一使用 `INTEGER`，取值约定：
 
 - `project_node_id` references `project_nodes(id)` on delete cascade
 
+说明：
+
+- 当前设计下，一个节点对应一个总结/认知目录入口
+- `summaries/` 下的文件名不强制要求时间戳格式
+- 总结文件以人工编辑和整理为主
+- 文件列表中的所有文件都直接展示
+
 建议索引：
 
 - `idx_insight_records_record_type` on `record_type`
@@ -458,37 +546,40 @@ SQLite 中布尔值统一使用 `INTEGER`，取值约定：
 
 ---
 
-## 6. 运行时视图状态表
+## 6. 不入库的运行时状态说明
 
-### 6.1 `runtime_views`
+当前版本中，以下运行时状态不进入共享 SQLite：
 
-用途：保存当前版本需要跨刷新保留的运行时视图状态。
+- `active_project_node_id`
+- `active_workflow_node_id`
 
-说明：
+原因：
 
-- 该表不属于长期业务数据本体
-- 但当前设计中，`active_project_node_id`、`active_workflow_node_id` 这类状态存在被持久化的可能
-- 为避免把运行时状态混入业务主表，建议单独建表
+- 它们属于当前界面上下文，不属于长期业务数据
+- 它们不应该参与跨机器同步
+- 浏览器插件端与 Trae 插件端可以各自维护自己的当前选中状态，避免互相覆盖
 
-建议字段：
+当前约定：
 
-| 字段名 | 类型 | 约束 | 说明 |
-|---|---|---|---|
-| `id` | `TEXT` | `PRIMARY KEY` | UUIDv7 |
-| `scope_type` | `TEXT` | `NOT NULL` | 例如 `project_view` |
-| `scope_ref` | `TEXT` | `NOT NULL` | 例如某个 `project_id` |
-| `active_project_node_id` | `TEXT` | `NULL` | 当前选中项目节点 |
-| `active_workflow_node_id` | `TEXT` | `NULL` | 当前选中工作流节点 |
-| `updated_at` | `TEXT` | `NOT NULL` | 更新时间 |
+- 这类状态仅保存在各端本地缓存中
+- 前端应提供清理本地缓存的按钮
+- `project_node_layouts` 和 `project_viewports` 不属于这类本地缓存，它们仍然需要入库并参与同步
 
-约束建议：
+### 6.1 不入库的保护目录说明
 
-- `UNIQUE(scope_type, scope_ref)`
+当前版本新增一个不进入数据库的工作区保护目录：
 
-说明：
+- `summaryArchives/<project-folder>/<node-folder>/`
 
-- 如果后续决定这类状态完全不落库，可移除此表
-- 当前先保留，方便后续实现有落点
+用途：
+
+- 在删除节点且 `summaries/` 非空时，承接“先转存总结，再删除”的保护流程
+
+规则：
+
+- 该目录不进入共享数据库
+- 该目录不纳入正式业务同步模型
+- 若转存失败，则应用层必须中止节点删除流程
 
 ---
 
@@ -550,6 +641,8 @@ SQLite 中布尔值统一使用 `INTEGER`，取值约定：
 | `project_nodes` | `project_nodes.csv` |
 | `project_node_relations` | `project_node_relations.csv` |
 | `project_node_workflows` | `project_node_workflows.csv` |
+| `project_node_layouts` | `project_node_layouts.csv` |
+| `project_viewports` | `project_viewports.csv` |
 | `solutions` | `solutions.csv` |
 | `solution_projects` | `solution_projects.csv` |
 | `conversation_records` | `conversations.csv` |
@@ -557,8 +650,9 @@ SQLite 中布尔值统一使用 `INTEGER`，取值约定：
 
 说明：
 
-- `runtime_views` 不建议参与同步导出
-- 它属于运行时状态，不属于跨机器同步的核心业务数据
+- `project_node_layouts` 和 `project_viewports` 需要参与同步导出，以恢复一致的 Project 布局与视角
+- `active_project_node_id` 和 `active_workflow_node_id` 属于本地运行时缓存，不属于跨机器同步的核心业务数据
+- `summaryArchives/` 属于删除保护目录，不对应数据库表，也不参与正式同步导出
 
 ---
 
@@ -573,16 +667,21 @@ SQLite 中布尔值统一使用 `INTEGER`，取值约定：
 5. `project_nodes`
 6. `project_node_relations`
 7. `project_node_workflows`
-8. `solutions`
-9. `solution_projects`
-10. `conversation_records`
-11. `insight_records`
+8. `project_node_layouts`
+9. `project_viewports`
+10. `solutions`
+11. `solution_projects`
+12. `conversation_records`
+13. `insight_records`
 
-### 10.2 第二批可选表
+### 10.2 第二批可选项
 
-1. `runtime_views`
+当前无额外的数据库可选表。
 
-如果前端运行时状态不需要落库，可以延后。
+说明：
+
+- 运行时选中状态改为各端本地缓存，不再进入数据库范围
+- 如果后续出现新的可同步业务对象，再单独追加表设计
 
 ---
 
@@ -594,4 +693,8 @@ SQLite 中布尔值统一使用 `INTEGER`，取值约定：
 2. 表命名与字段命名已统一切换到 `Solution / Project / ProjectNode` 语义。
 3. 真实文件内容不直接搬进数据库，数据库只负责结构、关系和定位。
 4. 同步采用“一表一文件”的 CSV 导出方案，数据库表结构与同步文件结构一一对应。
-5. 当前版本优先追求语义清晰、关系稳定、实现简单，而不是为高并发或多用户场景做过度设计。
+5. Project 节点坐标与最终视角属于可同步视图配置数据，使用 `project_node_layouts` 与 `project_viewports` 单独建表，不并入 `project_nodes` 或 `projects`。
+6. `active_project_node_id` 与 `active_workflow_node_id` 属于各端本地运行时缓存，不进入共享数据库，也不参与同步。
+7. `chatLogs/` 采用 `yyyyMMdd-HHmmss__名称.md` 命名并按文件名时间戳判定最新文件，`summaries/` 不强制时间戳命名。
+8. 删除节点时的确认、总结转存与 `summaryArchives/` 保护流程属于应用层规则，不额外引入数据库表。
+9. 当前版本优先追求语义清晰、关系稳定、实现简单，而不是为高并发或多用户场景做过度设计。
