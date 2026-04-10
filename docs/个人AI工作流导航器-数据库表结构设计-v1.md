@@ -25,12 +25,12 @@
 
 ### 2.1 运行时数据库职责
 
-SQLite 是运行时元数据、关系和查询能力的唯一数据源。  
+SQLite 是运行时元数据、关系和查询能力的唯一数据源。
 数据库中不直接保存所有真实内容正文，但负责承载这些内容的索引、关系和定位信息。
 
 ### 2.2 路径字段规则
 
-所有文件路径和文件夹路径字段统一保存相对路径。  
+所有文件路径和文件夹路径字段统一保存相对路径。
 数据库中不保存业务数据层的绝对路径。
 
 ### 2.3 主键规则
@@ -48,7 +48,7 @@ SQLite 是运行时元数据、关系和查询能力的唯一数据源。
 
 ### 2.5 删除策略
 
-当前版本采用级联删除策略。  
+当前版本采用级联删除策略。
 当上游实体删除时，相关关系记录、附属记录和从属记录应一并删除。
 
 应用层删除流程补充：
@@ -56,6 +56,7 @@ SQLite 是运行时元数据、关系和查询能力的唯一数据源。
 - 删除节点前必须先进行一次确认
 - 若 `summaries/` 非空，则必须进行二次提醒
 - 二次提醒后允许“先转存到 `summaryArchives/` 再删除”或“直接删除”
+- 若删除的是中间节点，则应先将其直接子节点改写为根层关系，再删除当前节点
 - `chatLogs/` 不触发二次提醒
 - 若总结转存失败，则应用层必须中止删除，避免数据库删除与磁盘保护流程不一致
 
@@ -128,16 +129,16 @@ SQLite 中布尔值统一使用 `INTEGER`，取值约定：
 
 建议字段：
 
-| 字段名 | 类型 | 约束 | 说明 |
-|---|---|---|---|
-| `id` | `TEXT` | `PRIMARY KEY` | UUIDv7 |
-| `name` | `TEXT` | `NOT NULL` | 提示词名称 |
-| `description` | `TEXT` | `NOT NULL DEFAULT ''` | 描述 |
-| `tags` | `TEXT` | `NOT NULL DEFAULT ''` | 标签原始文本，当前版本先不拆标签表 |
-| `category` | `TEXT` | `NOT NULL DEFAULT ''` | 类别 |
-| `content_file_path` | `TEXT` | `NOT NULL UNIQUE` | 正文文件相对路径 |
-| `created_at` | `TEXT` | `NOT NULL` | 创建时间 |
-| `updated_at` | `TEXT` | `NOT NULL` | 更新时间 |
+| 字段名                | 类型     | 约束                    | 说明                               |
+| --------------------- | -------- | ----------------------- | ---------------------------------- |
+| `id`                | `TEXT` | `PRIMARY KEY`         | UUIDv7                             |
+| `name`              | `TEXT` | `NOT NULL`            | 提示词名称                         |
+| `description`       | `TEXT` | `NOT NULL DEFAULT ''` | 描述                               |
+| `tags`              | `TEXT` | `NOT NULL DEFAULT ''` | 标签原始文本，当前版本先不拆标签表 |
+| `category`          | `TEXT` | `NOT NULL DEFAULT ''` | 类别                               |
+| `content_file_path` | `TEXT` | `NOT NULL UNIQUE`     | 正文文件相对路径                   |
+| `created_at`        | `TEXT` | `NOT NULL`            | 创建时间                           |
+| `updated_at`        | `TEXT` | `NOT NULL`            | 更新时间                           |
 
 建议索引：
 
@@ -154,16 +155,16 @@ SQLite 中布尔值统一使用 `INTEGER`，取值约定：
 
 建议字段：
 
-| 字段名 | 类型 | 约束 | 说明 |
-|---|---|---|---|
-| `id` | `TEXT` | `PRIMARY KEY` | UUIDv7 |
-| `name` | `TEXT` | `NOT NULL` | 工作流名称 |
-| `description` | `TEXT` | `NOT NULL DEFAULT ''` | 描述 |
-| `tags` | `TEXT` | `NOT NULL DEFAULT ''` | 标签原始文本 |
-| `category` | `TEXT` | `NOT NULL DEFAULT ''` | 类别 |
+| 字段名             | 类型     | 约束                    | 说明             |
+| ------------------ | -------- | ----------------------- | ---------------- |
+| `id`             | `TEXT` | `PRIMARY KEY`         | UUIDv7           |
+| `name`           | `TEXT` | `NOT NULL`            | 工作流名称       |
+| `description`    | `TEXT` | `NOT NULL DEFAULT ''` | 描述             |
+| `tags`           | `TEXT` | `NOT NULL DEFAULT ''` | 标签原始文本     |
+| `category`       | `TEXT` | `NOT NULL DEFAULT ''` | 类别             |
 | `mermaid_source` | `TEXT` | `NOT NULL DEFAULT ''` | Mermaid 源码文本 |
-| `created_at` | `TEXT` | `NOT NULL` | 创建时间 |
-| `updated_at` | `TEXT` | `NOT NULL` | 更新时间 |
+| `created_at`     | `TEXT` | `NOT NULL`            | 创建时间         |
+| `updated_at`     | `TEXT` | `NOT NULL`            | 更新时间         |
 
 建议索引：
 
@@ -180,15 +181,15 @@ SQLite 中布尔值统一使用 `INTEGER`，取值约定：
 
 建议字段：
 
-| 字段名 | 类型 | 约束 | 说明 |
-|---|---|---|---|
-| `id` | `TEXT` | `PRIMARY KEY` | UUIDv7 |
-| `workflow_id` | `TEXT` | `NOT NULL` | 关联工作流 |
-| `mermaid_node_id` | `TEXT` | `NOT NULL` | Mermaid 节点标识 |
-| `action_type` | `TEXT` | `NOT NULL` | `prompt` / `tool` / `link` |
-| `target_ref` | `TEXT` | `NOT NULL DEFAULT ''` | 动作目标引用 |
-| `created_at` | `TEXT` | `NOT NULL` | 创建时间 |
-| `updated_at` | `TEXT` | `NOT NULL` | 更新时间 |
+| 字段名              | 类型     | 约束                    | 说明                             |
+| ------------------- | -------- | ----------------------- | -------------------------------- |
+| `id`              | `TEXT` | `PRIMARY KEY`         | UUIDv7                           |
+| `workflow_id`     | `TEXT` | `NOT NULL`            | 关联工作流                       |
+| `mermaid_node_id` | `TEXT` | `NOT NULL`            | Mermaid 节点标识                 |
+| `action_type`     | `TEXT` | `NOT NULL`            | `prompt` / `tool` / `link` |
+| `target_ref`      | `TEXT` | `NOT NULL DEFAULT ''` | 动作目标引用                     |
+| `created_at`      | `TEXT` | `NOT NULL`            | 创建时间                         |
+| `updated_at`      | `TEXT` | `NOT NULL`            | 更新时间                         |
 
 约束建议：
 
@@ -220,16 +221,16 @@ SQLite 中布尔值统一使用 `INTEGER`，取值约定：
 
 建议字段：
 
-| 字段名 | 类型 | 约束 | 说明 |
-|---|---|---|---|
-| `id` | `TEXT` | `PRIMARY KEY` | UUIDv7 |
-| `name` | `TEXT` | `NOT NULL` | 项目名称 |
-| `description` | `TEXT` | `NOT NULL DEFAULT ''` | 描述 |
-| `tags` | `TEXT` | `NOT NULL DEFAULT ''` | 标签原始文本 |
-| `category` | `TEXT` | `NOT NULL DEFAULT ''` | 类别 |
-| `folder_path` | `TEXT` | `NOT NULL UNIQUE` | 项目目录相对路径 |
-| `created_at` | `TEXT` | `NOT NULL` | 创建时间 |
-| `updated_at` | `TEXT` | `NOT NULL` | 更新时间 |
+| 字段名          | 类型     | 约束                    | 说明             |
+| --------------- | -------- | ----------------------- | ---------------- |
+| `id`          | `TEXT` | `PRIMARY KEY`         | UUIDv7           |
+| `name`        | `TEXT` | `NOT NULL`            | 项目名称         |
+| `description` | `TEXT` | `NOT NULL DEFAULT ''` | 描述             |
+| `tags`        | `TEXT` | `NOT NULL DEFAULT ''` | 标签原始文本     |
+| `category`    | `TEXT` | `NOT NULL DEFAULT ''` | 类别             |
+| `folder_path` | `TEXT` | `NOT NULL UNIQUE`     | 项目目录相对路径 |
+| `created_at`  | `TEXT` | `NOT NULL`            | 创建时间         |
+| `updated_at`  | `TEXT` | `NOT NULL`            | 更新时间         |
 
 说明：
 
@@ -250,16 +251,16 @@ SQLite 中布尔值统一使用 `INTEGER`，取值约定：
 
 建议字段：
 
-| 字段名 | 类型 | 约束 | 说明 |
-|---|---|---|---|
-| `id` | `TEXT` | `PRIMARY KEY` | UUIDv7 |
-| `project_id` | `TEXT` | `NOT NULL` | 所属项目 |
-| `name` | `TEXT` | `NOT NULL` | 节点名称 |
-| `description` | `TEXT` | `NOT NULL DEFAULT ''` | 描述 |
-| `status` | `TEXT` | `NOT NULL DEFAULT 'default'` | `default` / `todo` / `fix` |
-| `folder_path` | `TEXT` | `NOT NULL UNIQUE` | 节点目录相对路径 |
-| `created_at` | `TEXT` | `NOT NULL` | 创建时间 |
-| `updated_at` | `TEXT` | `NOT NULL` | 更新时间 |
+| 字段名          | 类型     | 约束                           | 说明                             |
+| --------------- | -------- | ------------------------------ | -------------------------------- |
+| `id`          | `TEXT` | `PRIMARY KEY`                | UUIDv7                           |
+| `project_id`  | `TEXT` | `NOT NULL`                   | 所属项目                         |
+| `name`        | `TEXT` | `NOT NULL`                   | 节点名称                         |
+| `description` | `TEXT` | `NOT NULL DEFAULT ''`        | 描述                             |
+| `status`      | `TEXT` | `NOT NULL DEFAULT 'default'` | `default` / `todo` / `fix` |
+| `folder_path` | `TEXT` | `NOT NULL UNIQUE`            | 节点目录相对路径                 |
+| `created_at`  | `TEXT` | `NOT NULL`                   | 创建时间                         |
+| `updated_at`  | `TEXT` | `NOT NULL`                   | 更新时间                         |
 
 外键建议：
 
@@ -286,14 +287,14 @@ SQLite 中布尔值统一使用 `INTEGER`，取值约定：
 
 建议字段：
 
-| 字段名 | 类型 | 约束 | 说明 |
-|---|---|---|---|
-| `id` | `TEXT` | `PRIMARY KEY` | UUIDv7 |
-| `project_id` | `TEXT` | `NOT NULL` | 所属项目 |
-| `parent_project_node_id` | `TEXT` | `NULL` | 父节点，为空表示根层 |
-| `child_project_node_id` | `TEXT` | `NOT NULL` | 子节点 |
-| `sort_order` | `INTEGER` | `NOT NULL` | 同级排序 |
-| `created_at` | `TEXT` | `NOT NULL` | 创建时间 |
+| 字段名                     | 类型        | 约束            | 说明                 |
+| -------------------------- | ----------- | --------------- | -------------------- |
+| `id`                     | `TEXT`    | `PRIMARY KEY` | UUIDv7               |
+| `project_id`             | `TEXT`    | `NOT NULL`    | 所属项目             |
+| `parent_project_node_id` | `TEXT`    | `NULL`        | 父节点，为空表示根层 |
+| `child_project_node_id`  | `TEXT`    | `NOT NULL`    | 子节点               |
+| `sort_order`             | `INTEGER` | `NOT NULL`    | 同级排序             |
+| `created_at`             | `TEXT`    | `NOT NULL`    | 创建时间             |
 
 约束建议：
 
@@ -309,7 +310,10 @@ SQLite 中布尔值统一使用 `INTEGER`，取值约定：
 说明：
 
 - 当前设计默认一个节点在同一个项目内只有一个父节点，因此 `child_project_node_id` 在同一项目内唯一
-- 根节点可通过 `parent_project_node_id IS NULL` 表达
+- 根节点可通过 `parent_project_node_id IS NULL` 的关系记录表达
+- 删除中间节点但保留子分支时，应将直接子节点改写为新的根层关系记录，而不是删除关系后让节点失去结构可见性
+- 这些被提升的直接子节点应保持原相对顺序，并按确定规则连续分配新的根层 `sort_order`
+- 当前版本建议统一采用“追加到当前根层末尾”的根层重排策略
 
 建议索引：
 
@@ -326,13 +330,13 @@ SQLite 中布尔值统一使用 `INTEGER`，取值约定：
 
 建议字段：
 
-| 字段名 | 类型 | 约束 | 说明 |
-|---|---|---|---|
-| `id` | `TEXT` | `PRIMARY KEY` | UUIDv7 |
-| `project_node_id` | `TEXT` | `NOT NULL UNIQUE` | 节点 ID |
-| `workflow_id` | `TEXT` | `NOT NULL` | 工作流 ID |
-| `created_at` | `TEXT` | `NOT NULL` | 创建时间 |
-| `updated_at` | `TEXT` | `NOT NULL` | 更新时间 |
+| 字段名              | 类型     | 约束                | 说明      |
+| ------------------- | -------- | ------------------- | --------- |
+| `id`              | `TEXT` | `PRIMARY KEY`     | UUIDv7    |
+| `project_node_id` | `TEXT` | `NOT NULL UNIQUE` | 节点 ID   |
+| `workflow_id`     | `TEXT` | `NOT NULL`        | 工作流 ID |
+| `created_at`      | `TEXT` | `NOT NULL`        | 创建时间  |
+| `updated_at`      | `TEXT` | `NOT NULL`        | 更新时间  |
 
 外键建议：
 
@@ -357,14 +361,14 @@ SQLite 中布尔值统一使用 `INTEGER`，取值约定：
 
 建议字段：
 
-| 字段名 | 类型 | 约束 | 说明 |
-|---|---|---|---|
-| `id` | `TEXT` | `PRIMARY KEY` | UUIDv7 |
+| 字段名              | 类型     | 约束                | 说明        |
+| ------------------- | -------- | ------------------- | ----------- |
+| `id`              | `TEXT` | `PRIMARY KEY`     | UUIDv7      |
 | `project_node_id` | `TEXT` | `NOT NULL UNIQUE` | 项目节点 ID |
-| `position_x` | `REAL` | `NOT NULL` | 节点横坐标 |
-| `position_y` | `REAL` | `NOT NULL` | 节点纵坐标 |
-| `created_at` | `TEXT` | `NOT NULL` | 创建时间 |
-| `updated_at` | `TEXT` | `NOT NULL` | 更新时间 |
+| `position_x`      | `REAL` | `NOT NULL`        | 节点横坐标  |
+| `position_y`      | `REAL` | `NOT NULL`        | 节点纵坐标  |
+| `created_at`      | `TEXT` | `NOT NULL`        | 创建时间    |
+| `updated_at`      | `TEXT` | `NOT NULL`        | 更新时间    |
 
 外键建议：
 
@@ -375,6 +379,7 @@ SQLite 中布尔值统一使用 `INTEGER`，取值约定：
 - 当前版本每个 `ProjectNode` 只维护一组持久化坐标
 - 该表属于可同步视图配置数据，不属于纯本机 UI 状态
 - 坐标不并入 `project_nodes` 主表，避免业务元数据与布局配置混杂
+- 节点因父节点删除而被提升为根层孤岛时，默认保持既有持久化坐标，不自动重排
 
 建议索引：
 
@@ -390,15 +395,15 @@ SQLite 中布尔值统一使用 `INTEGER`，取值约定：
 
 建议字段：
 
-| 字段名 | 类型 | 约束 | 说明 |
-|---|---|---|---|
-| `id` | `TEXT` | `PRIMARY KEY` | UUIDv7 |
-| `project_id` | `TEXT` | `NOT NULL UNIQUE` | 项目 ID |
-| `viewport_x` | `REAL` | `NOT NULL` | 视角横向偏移 |
-| `viewport_y` | `REAL` | `NOT NULL` | 视角纵向偏移 |
-| `zoom` | `REAL` | `NOT NULL` | 缩放比例 |
-| `created_at` | `TEXT` | `NOT NULL` | 创建时间 |
-| `updated_at` | `TEXT` | `NOT NULL` | 更新时间 |
+| 字段名         | 类型     | 约束                | 说明         |
+| -------------- | -------- | ------------------- | ------------ |
+| `id`         | `TEXT` | `PRIMARY KEY`     | UUIDv7       |
+| `project_id` | `TEXT` | `NOT NULL UNIQUE` | 项目 ID      |
+| `viewport_x` | `REAL` | `NOT NULL`        | 视角横向偏移 |
+| `viewport_y` | `REAL` | `NOT NULL`        | 视角纵向偏移 |
+| `zoom`       | `REAL` | `NOT NULL`        | 缩放比例     |
+| `created_at` | `TEXT` | `NOT NULL`        | 创建时间     |
+| `updated_at` | `TEXT` | `NOT NULL`        | 更新时间     |
 
 外键建议：
 
@@ -424,15 +429,15 @@ SQLite 中布尔值统一使用 `INTEGER`，取值约定：
 
 建议字段：
 
-| 字段名 | 类型 | 约束 | 说明 |
-|---|---|---|---|
-| `id` | `TEXT` | `PRIMARY KEY` | UUIDv7 |
-| `name` | `TEXT` | `NOT NULL` | 方案名称 |
-| `description` | `TEXT` | `NOT NULL DEFAULT ''` | 描述 |
-| `tags` | `TEXT` | `NOT NULL DEFAULT ''` | 标签原始文本 |
-| `category` | `TEXT` | `NOT NULL DEFAULT ''` | 类别 |
-| `created_at` | `TEXT` | `NOT NULL` | 创建时间 |
-| `updated_at` | `TEXT` | `NOT NULL` | 更新时间 |
+| 字段名          | 类型     | 约束                    | 说明         |
+| --------------- | -------- | ----------------------- | ------------ |
+| `id`          | `TEXT` | `PRIMARY KEY`         | UUIDv7       |
+| `name`        | `TEXT` | `NOT NULL`            | 方案名称     |
+| `description` | `TEXT` | `NOT NULL DEFAULT ''` | 描述         |
+| `tags`        | `TEXT` | `NOT NULL DEFAULT ''` | 标签原始文本 |
+| `category`    | `TEXT` | `NOT NULL DEFAULT ''` | 类别         |
+| `created_at`  | `TEXT` | `NOT NULL`            | 创建时间     |
+| `updated_at`  | `TEXT` | `NOT NULL`            | 更新时间     |
 
 建议索引：
 
@@ -449,13 +454,13 @@ SQLite 中布尔值统一使用 `INTEGER`，取值约定：
 
 建议字段：
 
-| 字段名 | 类型 | 约束 | 说明 |
-|---|---|---|---|
-| `id` | `TEXT` | `PRIMARY KEY` | UUIDv7 |
-| `solution_id` | `TEXT` | `NOT NULL` | 方案 ID |
-| `project_id` | `TEXT` | `NOT NULL` | 项目 ID |
-| `sort_order` | `INTEGER` | `NOT NULL` | 项目在方案中的顺序 |
-| `created_at` | `TEXT` | `NOT NULL` | 创建时间 |
+| 字段名          | 类型        | 约束            | 说明               |
+| --------------- | ----------- | --------------- | ------------------ |
+| `id`          | `TEXT`    | `PRIMARY KEY` | UUIDv7             |
+| `solution_id` | `TEXT`    | `NOT NULL`    | 方案 ID            |
+| `project_id`  | `TEXT`    | `NOT NULL`    | 项目 ID            |
+| `sort_order`  | `INTEGER` | `NOT NULL`    | 项目在方案中的顺序 |
+| `created_at`  | `TEXT`    | `NOT NULL`    | 创建时间           |
 
 约束建议：
 
@@ -481,13 +486,13 @@ SQLite 中布尔值统一使用 `INTEGER`，取值约定：
 
 建议字段：
 
-| 字段名 | 类型 | 约束 | 说明 |
-|---|---|---|---|
-| `id` | `TEXT` | `PRIMARY KEY` | UUIDv7 |
-| `project_node_id` | `TEXT` | `NOT NULL UNIQUE` | 节点 ID |
-| `folder_path` | `TEXT` | `NOT NULL UNIQUE` | 对话目录相对路径 |
-| `created_at` | `TEXT` | `NOT NULL` | 创建时间 |
-| `updated_at` | `TEXT` | `NOT NULL` | 更新时间 |
+| 字段名              | 类型     | 约束                | 说明             |
+| ------------------- | -------- | ------------------- | ---------------- |
+| `id`              | `TEXT` | `PRIMARY KEY`     | UUIDv7           |
+| `project_node_id` | `TEXT` | `NOT NULL UNIQUE` | 节点 ID          |
+| `folder_path`     | `TEXT` | `NOT NULL UNIQUE` | 对话目录相对路径 |
+| `created_at`      | `TEXT` | `NOT NULL`        | 创建时间         |
+| `updated_at`      | `TEXT` | `NOT NULL`        | 更新时间         |
 
 外键建议：
 
@@ -514,16 +519,16 @@ SQLite 中布尔值统一使用 `INTEGER`，取值约定：
 
 用途：保存节点总结/认知目录入口。
 
-建议字段：
+建议字段：`3230`
 
-| 字段名 | 类型 | 约束 | 说明 |
-|---|---|---|---|
-| `id` | `TEXT` | `PRIMARY KEY` | UUIDv7 |
-| `project_node_id` | `TEXT` | `NOT NULL UNIQUE` | 节点 ID |
-| `folder_path` | `TEXT` | `NOT NULL UNIQUE` | 总结目录相对路径 |
-| `record_type` | `TEXT` | `NOT NULL DEFAULT 'summary'` | 类型标记 |
-| `created_at` | `TEXT` | `NOT NULL` | 创建时间 |
-| `updated_at` | `TEXT` | `NOT NULL` | 更新时间 |
+| 字段名              | 类型     | 约束                           | 说明             |
+| ------------------- | -------- | ------------------------------ | ---------------- |
+| `id`              | `TEXT` | `PRIMARY KEY`                | UUIDv7           |
+| `project_node_id` | `TEXT` | `NOT NULL UNIQUE`            | 节点 ID          |
+| `folder_path`     | `TEXT` | `NOT NULL UNIQUE`            | 总结目录相对路径 |
+| `record_type`     | `TEXT` | `NOT NULL DEFAULT 'summary'` | 类型标记         |
+| `created_at`      | `TEXT` | `NOT NULL`                   | 创建时间         |
+| `updated_at`      | `TEXT` | `NOT NULL`                   | 更新时间         |
 
 外键建议：
 
@@ -623,7 +628,7 @@ SQLite 中布尔值统一使用 `INTEGER`，取值约定：
 
 ### 8.2 当前不建议过度索引
 
-由于当前是单人项目、低频操作、本地 SQLite，暂不建议为了理论优化过度增加索引。  
+由于当前是单人项目、低频操作、本地 SQLite，暂不建议为了理论优化过度增加索引。
 索引数量应以“支撑主要查询路径”为准。
 
 ---
@@ -632,21 +637,21 @@ SQLite 中布尔值统一使用 `INTEGER`，取值约定：
 
 当前一表一文件的建议对应关系如下：
 
-| 表名 | 导出文件 |
-|---|---|
-| `prompts` | `prompts.csv` |
-| `workflows` | `workflows.csv` |
-| `workflow_node_actions` | `workflow_node_actions.csv` |
-| `projects` | `projects.csv` |
-| `project_nodes` | `project_nodes.csv` |
+| 表名                       | 导出文件                       |
+| -------------------------- | ------------------------------ |
+| `prompts`                | `prompts.csv`                |
+| `workflows`              | `workflows.csv`              |
+| `workflow_node_actions`  | `workflow_node_actions.csv`  |
+| `projects`               | `projects.csv`               |
+| `project_nodes`          | `project_nodes.csv`          |
 | `project_node_relations` | `project_node_relations.csv` |
 | `project_node_workflows` | `project_node_workflows.csv` |
-| `project_node_layouts` | `project_node_layouts.csv` |
-| `project_viewports` | `project_viewports.csv` |
-| `solutions` | `solutions.csv` |
-| `solution_projects` | `solution_projects.csv` |
-| `conversation_records` | `conversations.csv` |
-| `insight_records` | `insights.csv` |
+| `project_node_layouts`   | `project_node_layouts.csv`   |
+| `project_viewports`      | `project_viewports.csv`      |
+| `solutions`              | `solutions.csv`              |
+| `solution_projects`      | `solution_projects.csv`      |
+| `conversation_records`   | `conversations.csv`          |
+| `insight_records`        | `insights.csv`               |
 
 说明：
 

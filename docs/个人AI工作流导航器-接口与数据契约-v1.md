@@ -20,6 +20,11 @@
 - 单个任务的 AI 执行提示包
 - 具体采用数据库级联、服务层编排还是事务封装的实现细节
 
+当前版本约定：
+
+- 与接口相关的正式设计、实施范围和行为边界，只保留本文件这一份主文档
+- 不再并行维护独立的“接口实现清单”类同层文档
+
 ---
 
 ## 2. 设计依据
@@ -38,7 +43,7 @@
 
 - 本文档优先约束对外可观察的结果语义，不强制唯一实现手段
 - 只要不违反接口行为、数据一致性和错误语义，数据库级联、服务层编排、事务封装都可以作为合法实现方式
-- `个人AI工作流导航器-接口实现清单-v1.md` 属于实现展开文档；若它与本文档冲突，以本文档为准
+- 若后续需要补充开发顺序、验收建议或联调提示，也应直接补充到本文档，而不是新开同层重复文档
 
 ---
 
@@ -88,10 +93,8 @@
 
 当前系统的接口天然分成两类：
 
-1. 资源对象接口  
-   例如：`Prompt`、`Workflow`、`Project`、`ProjectNode`、`Solution`、布局与视角配置。
-
-2. 业务动作接口  
+1. 资源对象接口例如：`Prompt`、`Workflow`、`Project`、`ProjectNode`、`Solution`、布局与视角配置。
+2. 业务动作接口
    例如：触发节点动作、追加到最新对话文件、删除前检查、执行巡检、执行导入导出。
 
 若统一为全 `POST`，虽然实现层可以更机械一致，但会把“读取资源”和“执行动作”混成同一种语义，降低契约的自解释性。
@@ -426,7 +429,7 @@ Web API 应对前端暴露 Prompt 资源语义，而不是暴露底层 `content_
 - `PATCH /api/prompts/{id}`
 - `DELETE /api/prompts/{id}`
 
-当前版本不单独拆出 `GET /api/prompts/{id}/content`。  
+当前版本不单独拆出 `GET /api/prompts/{id}/content`。
 读取单个 Prompt 时，允许直接返回正文内容。
 
 ### 7.3 Prompt DTO 约定
@@ -1016,10 +1019,8 @@ Workflow 资源当前优先使用以下错误语义：
 
 当前契约明确区分两类能力：
 
-1. 绑定关系维护  
-   负责把工作流节点配置成 `prompt`、`tool` 或 `link`
-
-2. 运行时动作触发  
+1. 绑定关系维护负责把工作流节点配置成 `prompt`、`tool` 或 `link`
+2. 运行时动作触发
    负责在项目节点上下文中真正执行或触发动作
 
 当前章节只定义“绑定关系维护”，不定义运行时动作执行。
@@ -1317,6 +1318,8 @@ Workflow 节点动作绑定当前优先使用以下错误语义：
 - `GET /api/projects/{id}`
 - `POST /api/projects`
 - `PATCH /api/projects/{id}`
+- `POST /api/projects/{projectId}/deletion-check`
+- `POST /api/projects/{projectId}/deletion-execute`
 
 ### 10.3 Project DTO 约定
 
@@ -1472,18 +1475,178 @@ Workflow 节点动作绑定当前优先使用以下错误语义：
 
 - `PROJECT_NOT_FOUND`
 
-### 10.8 当前版本暂不开放 Project 删除接口
+### 10.8 Project 删除保护契约
 
 当前版本明确：
 
 - `Project` 删除属于高风险破坏性操作
 - 它会影响项目元数据、项目节点、节点工作流绑定、视图配置以及项目目录
-- 在专门的项目级删除保护契约落定前，不对前端开放 `DELETE /api/projects/{id}`
+- 不对前端开放裸 `DELETE /api/projects/{id}`
+- 项目删除统一通过显式动作接口处理，而不是混入基础资源 CRUD
+
+#### 10.8.1 路由清单
+
+- `POST /api/projects/{projectId}/deletion-check`
+- `POST /api/projects/{projectId}/deletion-execute`
+
+说明：
+
+- 这两个接口属于项目级删除保护动作接口
+- 面向前端的正式项目删除流程必须使用它们
+- 当前版本不恢复裸 `DELETE /api/projects/{id}`
+
+#### 10.8.2 DTO 约定
+
+##### 10.8.2.1 ProjectDeletionCheckResult
+
+```json
+{
+  "projectId": "018f3f2b-2b7e-7b1b-9a12-123456789abc",
+  "projectNodeCount": 6,
+  "summaryNodeCount": 2,
+  "requiresSecondConfirmation": true,
+  "allowedStrategies": [
+    "archive_then_delete",
+    "direct_delete"
+  ]
+}
+```
+
+字段说明：
+
+- `projectId`：目标项目 ID
+- `projectNodeCount`：当前项目下的节点总数
+- `summaryNodeCount`：`summaries/` 非空的节点数量
+- `requiresSecondConfirmation`：是否要求二次确认
+- `allowedStrategies`：当前允许的删除策略
+
+##### 10.8.2.2 ProjectDeletionExecuteRequest
+
+```json
+{
+  "confirmDelete": true,
+  "secondConfirmation": true,
+  "strategy": "archive_then_delete"
+}
+```
+
+字段说明：
+
+- `confirmDelete`：是否明确确认删除
+- `secondConfirmation`：是否明确完成二次确认
+- `strategy`：删除策略
+
+##### 10.8.2.3 ProjectDeletionExecuteResult
+
+```json
+{
+  "projectId": "018f3f2b-2b7e-7b1b-9a12-123456789abc",
+  "deleted": true,
+  "usedStrategy": "archive_then_delete",
+  "archivedSummaryNodeCount": 2
+}
+```
+
+字段说明：
+
+- `projectId`：目标项目 ID
+- `deleted`：是否已完成删除
+- `usedStrategy`：实际采用的删除策略
+- `archivedSummaryNodeCount`：本次转存过总结的节点数量
+
+#### 10.8.3 删除检查接口
+
+##### 10.8.3.1 `POST /api/projects/{projectId}/deletion-check`
+
+用途：
+
+- 获取项目删除前置条件
+- 返回当前允许的删除策略
+- 判断是否需要二次确认
+
+请求体：
+
+当前版本允许空对象：
+
+```json
+{}
+```
+
+返回：
+
+- `data.result` 为 `ProjectDeletionCheckResult`
+
+当前版本规则：
+
+- 必须先确认项目存在
+- 必须统计项目节点数量
+- 必须统计 `summaries/` 非空的节点数量
+- 若 `summaryNodeCount = 0`，则 `requiresSecondConfirmation = false`
+- 若 `summaryNodeCount = 0`，则 `allowedStrategies = ["direct_delete"]`
+- 若 `summaryNodeCount > 0`，则 `requiresSecondConfirmation = true`
+- 若 `summaryNodeCount > 0`，则 `allowedStrategies = ["archive_then_delete", "direct_delete"]`
+
+错误码建议：
+
+- `PROJECT_NOT_FOUND`
+- `INTERNAL_ERROR`
+
+#### 10.8.4 删除执行接口
+
+##### 10.8.4.1 `POST /api/projects/{projectId}/deletion-execute`
+
+请求体：
+
+```json
+{
+  "confirmDelete": true,
+  "secondConfirmation": true,
+  "strategy": "archive_then_delete"
+}
+```
+
+返回：
+
+- `data.result` 为 `ProjectDeletionExecuteResult`
+
+当前版本执行规则：
+
+- 必须先校验项目存在
+- 执行前必须基于当前实时状态重新计算一次项目删除检查结果，而不是直接信任前一次 `deletion-check` 返回值
+- 必须校验 `confirmDelete = true`
+- 若当前实时删除检查结果要求二次确认，则必须校验 `secondConfirmation = true`
+- 请求中的 `strategy` 必须属于当前实时 `allowedStrategies`
+- 若 `strategy = archive_then_delete`：
+  - 先将项目下所有 `summaries/` 非空节点的总结转存到 `summaryArchives/<project-folder>/<node-folder>/`
+  - 所有需要转存的节点都成功后才允许删除项目
+- 若 `strategy = direct_delete`：
+  - 直接执行删除
+
+删除成功时的实际效果：
+
+- 删除项目元数据
+- 删除项目下全部节点元数据、结构关系、节点工作流绑定、目录入口记录与磁盘内容
+- 删除项目级布局与视角配置
+- 若采用转存策略，则保留 `summaryArchives/` 中的转存结果
+
+错误处理规则：
+
+- 若 `confirmDelete` 缺失或为 `false`，返回 `412 + PRECONDITION_FAILED`
+- 若当前实时状态需要二次确认但 `secondConfirmation` 不满足，返回 `412 + PRECONDITION_FAILED`
+- 若请求中的 `strategy` 不属于当前实时 `allowedStrategies`，返回 `412 + PRECONDITION_FAILED`
+- 若任一节点的总结转存失败，则必须中止删除，并返回错误；不得出现“项目已删但部分总结未转存成功”的不一致状态
+
+错误码建议：
+
+- `PROJECT_NOT_FOUND`
+- `PRECONDITION_FAILED`
+- `SUMMARY_ARCHIVE_FAILED`
+- `INTERNAL_ERROR`
 
 当前版本结论：
 
-- `Project` 资源 API 只定义读取、创建、更新
-- 若后续需要项目删除，应单独补充项目级 `deletion-check / deletion-execute` 契约，而不是直接恢复裸 `DELETE`
+- `Project` 基础资源 API 只定义读取、创建、更新
+- `Project` 删除能力统一通过项目级 `deletion-check / deletion-execute` 动作接口暴露
 
 ### 10.9 当前版本刻意不暴露的内容
 
@@ -1678,7 +1841,7 @@ Workflow 节点动作绑定当前优先使用以下错误语义：
 - 前端若需要“未归组”展示，可基于：
   - `GET /api/projects`
   - `GET /api/projects/{projectId}/solutions`
-  的结果自行组合出虚拟分组
+    的结果自行组合出虚拟分组
 - 服务端不对外暴露真实存在的 `UNASSIGNED` 方案资源
 
 #### 10.10.7 校验与错误语义
@@ -1971,7 +2134,8 @@ Workflow 节点动作绑定当前优先使用以下错误语义：
 当前版本明确：
 
 - 节点删除属于高风险操作
-- 节点删除会影响节点元数据、节点结构关系、节点工作流绑定以及节点目录内容
+- 节点删除会影响当前节点元数据、当前节点相关结构关系、当前节点工作流绑定以及当前节点目录内容
+- 若存在直接子节点，删除后它们会改写为根层孤岛节点，而不是被一并删除
 - 面向前端的正式删除流程必须走第 14 节定义的删除保护动作接口
 
 当前版本结论：
@@ -2120,6 +2284,8 @@ ProjectNode 资源当前优先使用以下错误语义：
 - 若节点存在，但 `conversation_records` 记录缺失，读取或写入接口应先按标准路径补齐目录入口记录
 - 若目录入口记录存在，但对应 `chatLogs/` 目录缺失，读取或写入接口应先补齐目录
 - 以上补齐属于幂等的内部修复，不改变本节对前端的接口形态
+- 在 `rebuild` 导入场景中，若 `conversations.csv` 缺失，可在 `project_nodes` 恢复完成后按标准路径批量重建 `conversation_records`
+- 若 `conversations.csv` 存在但内容不合法，则导入必须失败，而不是静默忽略
 
 ### 12.4 目录信息接口
 
@@ -2344,6 +2510,8 @@ ProjectNode 资源当前优先使用以下错误语义：
 - 若节点存在，但 `insight_records` 记录缺失，读取接口应先按标准路径补齐目录入口记录
 - 若目录入口记录存在，但对应 `summaries/` 目录缺失，读取接口应先补齐目录
 - 以上补齐属于幂等的内部修复，不改变本节对前端的接口形态
+- 在 `rebuild` 导入场景中，若 `insights.csv` 缺失，可在 `project_nodes` 恢复完成后按标准路径批量重建 `insight_records`
+- 若 `insights.csv` 存在但内容不合法，则导入必须失败，而不是静默忽略
 
 ### 13.4 目录信息接口
 
@@ -2448,6 +2616,9 @@ ProjectNode 资源当前优先使用以下错误语义：
 - `chatLogs/` 不触发二次提醒
 - `summaries/` 非空才触发二次提醒
 - `summaryArchives/` 仅作为删除保护目录存在，不参与正式同步
+- 删除语义是“只删除当前节点，不删除其子分支”
+- 若目标节点存在直接子节点，则删除后这些子节点应改写为根层孤岛节点
+- 根层孤岛节点在数据层仍必须保留结构关系记录，并以 `parentNodeId = null` / `parent_project_node_id IS NULL` 表达
 
 ### 14.3 路由清单
 
@@ -2475,6 +2646,7 @@ ProjectNode 资源当前优先使用以下错误语义：
 {
   "projectNodeId": "018f3f2b-3333-7b1b-9a12-123456789abc",
   "requiresSecondConfirmation": true,
+  "directChildCount": 2,
   "summaryFileCount": 3,
   "allowedStrategies": [
     "archive_then_delete",
@@ -2487,6 +2659,7 @@ ProjectNode 资源当前优先使用以下错误语义：
 
 - `projectNodeId`：目标节点 ID
 - `requiresSecondConfirmation`：是否要求二次确认
+- `directChildCount`：当前节点的直接子节点数量
 - `summaryFileCount`：`summaries/` 中的文件数量
 - `allowedStrategies`：当前允许的删除策略
 
@@ -2524,10 +2697,9 @@ ProjectNode 资源当前优先使用以下错误语义：
 当前版本规则：
 
 - `confirmDelete` 必须为 `true`
-- 若删除检查结果要求二次确认，则 `secondConfirmation` 必须为 `true`
-- `strategy` 当前仅允许：
-  - `archive_then_delete`
-  - `direct_delete`
+- 执行时必须基于当前实时删除检查结果判断是否仍需二次确认
+- 若当前实时删除检查结果要求二次确认，则 `secondConfirmation` 必须为 `true`
+- `strategy` 必须属于当前实时 `allowedStrategies`
 
 #### 14.4.3 ProjectNodeDeletionExecuteResult
 
@@ -2536,7 +2708,8 @@ ProjectNode 资源当前优先使用以下错误语义：
   "projectNodeId": "018f3f2b-3333-7b1b-9a12-123456789abc",
   "deleted": true,
   "usedStrategy": "archive_then_delete",
-  "archived": true
+  "archived": true,
+  "promotedToRootCount": 2
 }
 ```
 
@@ -2546,6 +2719,7 @@ ProjectNode 资源当前优先使用以下错误语义：
 - `deleted`：是否已完成删除
 - `usedStrategy`：实际采用的删除策略
 - `archived`：是否完成总结转存
+- `promotedToRootCount`：本次被提升为根层孤岛节点的直接子节点数量
 
 ### 14.5 删除检查接口
 
@@ -2572,8 +2746,10 @@ ProjectNode 资源当前优先使用以下错误语义：
 当前版本规则：
 
 - 必须先确认节点存在
+- 必须统计当前节点的直接子节点数量
 - 必须检查 `summaries/` 是否非空
 - `chatLogs/` 是否非空不影响二次确认判定
+- 删除检查只判断当前节点是否允许删除，不因存在子节点而阻塞删除
 
 错误码建议：
 
@@ -2601,25 +2777,39 @@ ProjectNode 资源当前优先使用以下错误语义：
 当前版本执行规则：
 
 - 必须先校验节点存在
+- 执行前必须基于当前实时状态重新计算一次节点删除检查结果，而不是直接信任前一次 `deletion-check` 返回值
 - 必须校验 `confirmDelete = true`
-- 若需要二次确认，则必须校验 `secondConfirmation = true`
+- 若当前实时删除检查结果要求二次确认，则必须校验 `secondConfirmation = true`
+- 请求中的 `strategy` 必须属于当前实时 `allowedStrategies`
 - 若 `strategy = archive_then_delete`：
   - 先转存 `summaries/` 到 `summaryArchives/<project-folder>/<node-folder>/`
   - 转存成功后才允许删除
 - 若 `strategy = direct_delete`：
   - 直接执行删除
+- 若目标节点存在直接子节点：
+  - 必须先将这些子节点改写为根层孤岛节点
+  - 直接子节点对应的结构关系记录必须保留，但其 `parentNodeId` / `parent_project_node_id` 改写为 `null`
+  - 子分支内部原有父子关系保持不变
+  - 这些直接子节点在根层中的相对顺序必须保持与删除前一致
+  - 这些直接子节点的根层 `sortOrder` 必须按确定规则连续分配；当前版本统一采用“追加到当前根层末尾”的方式
+  - 这些直接子节点原有的持久化画布坐标默认保持不变，不因提升为根层而自动重排
 
 删除成功时的实际效果：
 
-- 删除节点元数据
-- 删除节点结构关系与节点工作流绑定
-- 删除节点目录及其磁盘内容
+- 删除当前节点元数据
+- 删除当前节点与父节点之间的结构关系
+- 删除当前节点自己的工作流绑定、目录入口记录与磁盘内容
+- 若存在直接子节点，则将其改写为根层孤岛节点，而不是一并删除
+- 子分支内部原有父子关系保持不变
+- 被提升的直接子节点保持原相对顺序，并以连续的新根层 `sortOrder` 追加到当前根层末尾
+- 被提升节点已有的持久化画布坐标默认保持不变
 - 若采用转存策略，则保留 `summaryArchives/` 中的转存结果
 
 错误处理规则：
 
 - 若 `confirmDelete` 缺失或为 `false`，返回 `412 + PRECONDITION_FAILED`
-- 若需要二次确认但 `secondConfirmation` 不满足，返回 `412 + PRECONDITION_FAILED`
+- 若当前实时状态需要二次确认但 `secondConfirmation` 不满足，返回 `412 + PRECONDITION_FAILED`
+- 若请求中的 `strategy` 不属于当前实时 `allowedStrategies`，返回 `412 + PRECONDITION_FAILED`
 - 若转存失败，则必须中止删除，并返回错误；不得出现“数据库已删但总结未转存成功”的不一致状态
 
 错误码建议：
@@ -2691,10 +2881,8 @@ ProjectNode 资源当前优先使用以下错误语义：
 
 当前版本明确区分：
 
-1. 可同步视图配置  
-   包括节点坐标与最终视角位置，这部分需要入库并参与同步。
-
-2. 本地运行时状态  
+1. 可同步视图配置包括节点坐标与最终视角位置，这部分需要入库并参与同步。
+2. 本地运行时状态
    包括 `activeProjectNodeId`、`activeWorkflowNodeId`、面板展开状态、临时搜索词等，这部分只保存在前端本地缓存中。
 
 补充说明：
@@ -2863,6 +3051,11 @@ ProjectNode 资源当前优先使用以下错误语义：
 }
 ```
 
+字段说明：
+
+- `manifestFile`：本次生成的 `manifest.json` 相对路径
+- `exportedFileCount`：本次导出的表级 CSV 文件数量，不包含 `manifest.json`
+
 当前版本规则：
 
 - 必须先校验 `projectId` 存在
@@ -2978,10 +3171,8 @@ Project 视图配置当前优先使用以下错误语义：
 
 当前版本明确区分：
 
-1. 绑定维护  
-   负责把工作流节点配置成 `prompt` / `tool` / `link`
-
-2. 运行时动作  
+1. 绑定维护负责把工作流节点配置成 `prompt` / `tool` / `link`
+2. 运行时动作
    负责在项目节点上下文中读取当前 Mermaid 节点动作详情并触发动作
 
 因此：
@@ -3152,16 +3343,17 @@ Project 视图配置当前优先使用以下错误语义：
 按动作类型的行为：
 
 1. `prompt`
+
    - 解析并读取目标 Prompt 正文
    - 返回 `copyText`
    - 不由服务端直接复制到系统剪贴板
-
 2. `tool`
+
    - 解析目标 `toolKey`
    - 调用本地工具执行能力
    - 返回是否已发起执行
-
 3. `link`
+
    - 当前版本不实现实际执行能力
    - 触发时返回错误
 
@@ -3506,7 +3698,13 @@ Project 视图配置当前优先使用以下错误语义：
 
 - `version`：导出格式版本
 - `exportedAt`：导出时间
-- `files`：本次导出的文件列表
+- `files`：本次导出的实际产物列表
+
+当前版本明确：
+
+- `manifest.files` 仅用于描述本次导出实际生成了哪些文件
+- 它不是 `rebuild` 导入时的“全部必填文件集合”
+- 导入实现不得仅根据 `manifest.files` 反推所有文件都必须存在
 
 ### 18.6 导出接口
 
@@ -3589,8 +3787,29 @@ Project 视图配置当前优先使用以下错误语义：
 - 导入输入源固定为 `dbSyncs/` 目录中的同步文件
 - 导入时允许先清空再重建
 - 导入应恢复结构化元数据、关系和可同步视图配置
-- `conversations.csv` 与 `insights.csv` 属于当前版本的必需结构化文件，不应在 `rebuild` 导入时被静默省略
-- 若导入集中存在 `project_nodes.csv`，却缺少 `conversations.csv` 或 `insights.csv`，应返回 `VALIDATION_ERROR`
+- `rebuild` 导入校验必须区分“必须存在文件集合”和“可缺失重建文件集合”
+- 必须存在文件集合为：
+  - `manifest.json`
+  - `prompts.csv`
+  - `workflows.csv`
+  - `workflow_node_actions.csv`
+  - `projects.csv`
+  - `project_nodes.csv`
+  - `project_node_relations.csv`
+  - `project_node_workflows.csv`
+  - `project_node_layouts.csv`
+  - `project_viewports.csv`
+  - `solutions.csv`
+  - `solution_projects.csv`
+- 可缺失重建文件集合为：
+  - `conversations.csv`
+  - `insights.csv`
+- 若任一必须存在文件缺失，则导入必须返回 `VALIDATION_ERROR`
+- `conversations.csv` 与 `insights.csv` 属于可导出、可校验、可重建的派生结构索引
+- 若这两个文件存在，则导入时必须校验其内容合法性
+- 若这两个文件缺失，则允许在 `project_nodes` 恢复完成后按标准路径批量重建目录入口记录
+- 导入实现不得仅因为 `manifest.files` 中出现某个可重建文件，就将其判定为本次导入的强制必需项
+- 只有在文件存在但内容不合法，或重建所依赖的上游数据不完整时，才返回 `VALIDATION_ERROR`
 - 导入后由人手动刷新页面，不要求系统自动刷新 UI
 
 失败策略：
@@ -3612,7 +3831,7 @@ Project 视图配置当前优先使用以下错误语义：
 
 说明：
 
-- `VALIDATION_ERROR` 主要用于 `manifest.json` 或导入参数不符合契约
+- `VALIDATION_ERROR` 主要用于 `manifest.json`、导入参数、CSV 内容或重建前提不符合契约
 - `INTERNAL_ERROR` 主要用于文件读写、CSV 处理或数据库重建过程失败
 
 ### 18.9 当前版本刻意不在本节处理的内容
@@ -3782,7 +4001,7 @@ Project 视图配置当前优先使用以下错误语义：
 
 ```json
 {
-  "status": "passed",
+  "status": "ready",
   "checks": [
     {
       "checkType": "CONFIG_VALID",
@@ -3820,7 +4039,7 @@ Project 视图配置当前优先使用以下错误语义：
 
 ### 19.9 状态值约定
 
-当前版本先统一以下状态值：
+`StartupCheckItem.status` 当前统一使用以下状态值：
 
 - `passed`
 - `failed`
@@ -3832,7 +4051,7 @@ Project 视图配置当前优先使用以下错误语义：
 - `failed`：检查失败
 - `fixed`：原本缺失，但已通过允许的自动创建流程修复
 
-`startupStatus` / `status` 当前统一使用：
+`startupStatus` 与 `SelfCheckResult.status` 当前统一使用：
 
 - `ready`
 - `failed`
@@ -3886,6 +4105,8 @@ Project 视图配置当前优先使用以下错误语义：
 - 手动自检应重复执行当前已定义的底座检查项
 - 对允许自动创建的目录问题，可再次自动补齐
 - 自检发现配置或 schema 问题时，应返回失败结果
+- 若所有检查项均为 `passed` / `fixed`，则 `SelfCheckResult.status = ready`
+- 若存在任一检查项为 `failed`，则 `SelfCheckResult.status = failed`
 - 本接口不负责触发业务巡检
 
 错误码建议：
@@ -3924,19 +4145,11 @@ Project 视图配置当前优先使用以下错误语义：
 
 后续继续细化时，本文档建议至少拆成以下章节：
 
-1. 通用 HTTP 契约  
-   统一响应结构、统一错误结构、ID 规则、时间字段规则、分页与排序规则。
-
-2. 资源型 API 契约  
-   `prompts`、`workflows`、`projects`、`project-nodes`、`solutions`、`project-node-layouts`、`project-viewports`。
-
-3. 动作型 API 契约  
-   节点动作触发、工作流节点动作绑定同步、对话追加、新建对话文件、删除检查、巡检、导入导出、启动自检。
-
-4. 文件与目录契约  
-   固定目录结构、相对路径规则、命名规则、最新对话文件判定规则、保护目录规则。
-
-5. 初始化 / 自检 / 修复契约  
+1. 通用 HTTP 契约统一响应结构、统一错误结构、ID 规则、时间字段规则、分页与排序规则。
+2. 资源型 API 契约`prompts`、`workflows`、`projects`、`project-nodes`、`solutions`、`project-node-layouts`、`project-viewports`。
+3. 动作型 API 契约节点动作触发、工作流节点动作绑定同步、对话追加、新建对话文件、删除检查、巡检、导入导出、启动自检。
+4. 文件与目录契约固定目录结构、相对路径规则、命名规则、最新对话文件判定规则、保护目录规则。
+5. 初始化 / 自检 / 修复契约
    启动检查项、自动创建规则、失败语义、自修复边界、禁止自动执行的危险动作。
 
 ---
