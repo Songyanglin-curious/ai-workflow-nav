@@ -1,5 +1,6 @@
 # 个人 AI 工作流导航器模块设计 v1
 
+
 ## 1. 文档目标
 
 本文档用于承接系统设计 `L0`，给出当前版本的 `L1` 模块设计。
@@ -82,10 +83,10 @@
 | M05 | 文件访问基础模块 | 文件层 | 提供受约束的文件读写、列目录、存在性检查、移动删除能力 |
 | M06 | Prompt 模块 | 服务层 | 管理提示词元数据与正文文件 |
 | M07 | Workflow 模块 | 服务层 | 管理工作流元数据、Mermaid 源码与节点动作绑定 |
-| M08 | Project / ProjectNode 模块 | 服务层 | 管理项目、节点、结构关系与节点工作流绑定 |
+| M08 | Solution / Project / ProjectNode 模块 | 服务层 | 管理方案、项目、节点、结构关系与节点工作流绑定 |
 | M09 | Project 视图配置模块 | 服务层 | 管理节点布局坐标和项目视角配置 |
-| M10 | 对话记录文件模块 | 服务层 | 管理节点 `chatLogs/` 目录与默认写入目标 |
-| M11 | 总结记录文件模块 | 服务层 | 管理节点 `summaries/` 目录与文件列表读取 |
+| M10 | 对话记录文件模块 | 服务层 | 管理节点 `chatLogs/` 目录、目录入口与默认写入目标 |
+| M11 | 总结记录文件模块 | 服务层 | 管理节点 `summaries/` 目录、目录入口与文件列表读取 |
 | M12 | 节点删除保护模块 | 服务层 | 组织二次提醒、总结转存与节点删除流程 |
 | M13 | 外部工具调用模块 | 服务层 | 管理工具路由、命令参数拼装与执行前安全校验 |
 | M14 | 同步导入导出模块 | 服务层 | 在 SQLite 与 `dbSyncs/` 之间执行手动导入导出 |
@@ -327,6 +328,7 @@ flowchart TD
 - 维护 `workflow_node_actions`
 - 提供工作流渲染所需结构化数据
 - 校验 Mermaid 节点绑定是否失效
+- 在 Mermaid 源码变更后清理失效的节点动作绑定
 
 写入边界：
 
@@ -347,24 +349,29 @@ flowchart TD
 
 - `action_type = tool` 的校验需要读取工具配置
 - 动作执行本身应委托给 `M13`
+- 显式 `sync` 与隐式自动清理都收口在本模块内
 
 ---
 
-## 5.8 M08 Project / ProjectNode 模块
+## 5.8 M08 Solution / Project / ProjectNode 模块
 
 职责：
 
+- Solution 的增删改查
+- Solution 与 Project 归属关系维护
 - Project 的增删改查
 - ProjectNode 的增删改查
 - 项目结构关系维护
 - 节点与工作流绑定维护
 - 项目与节点目录初始化
+- 协调节点内容目录入口初始化
 
 写入边界：
 
-- 元数据写入 `projects`、`project_nodes`
-- 结构写入 `project_node_relations`
+- 元数据写入 `solutions`、`projects`、`project_nodes`
+- 关系写入 `solution_projects`、`project_node_relations`
 - 节点工作流绑定写入 `project_node_workflows`
+- 节点内容目录入口初始化协调 `conversation_records`、`insight_records`
 - 目录写入 `projects/<project-folder>/<node-folder>/`
 
 不负责：
@@ -377,6 +384,8 @@ flowchart TD
 
 - `M03`
 - `M05`
+- `M10`
+- `M11`
 - 数据库访问能力
 
 ---
@@ -411,6 +420,7 @@ flowchart TD
 职责：
 
 - 管理节点 `chatLogs/` 目录
+- 维护 `conversation_records` 目录入口记录
 - 读取对话文件列表
 - 选择“最新合规文件”作为默认写入目标
 - 在无合规文件时自动创建新的对话文件
@@ -421,6 +431,12 @@ flowchart TD
 
 - 只按文件名时间戳判定“最新”
 - 不合规文件允许展示，但不参与默认写入目标判定
+- 节点存在但目录入口缺失时，允许按标准路径幂等补齐
+
+写入边界：
+
+- 目录入口写入 `conversation_records`
+- 文件目录写入 `projects/<project-folder>/<node-folder>/chatLogs/`
 
 不负责：
 
@@ -440,6 +456,7 @@ flowchart TD
 职责：
 
 - 管理节点 `summaries/` 目录
+- 维护 `insight_records` 目录入口记录
 - 读取总结文件列表
 - 提供总结目录存在性与非空判定
 - 为节点详情页提供文件列表数据
@@ -448,6 +465,12 @@ flowchart TD
 
 - 文件名不要求时间戳
 - 不做“最新文件”判定
+- 节点存在但目录入口缺失时，允许按标准路径幂等补齐
+
+写入边界：
+
+- 目录入口写入 `insight_records`
+- 文件目录写入 `projects/<project-folder>/<node-folder>/summaries/`
 
 不负责：
 
@@ -538,6 +561,7 @@ flowchart TD
 
 - 只处理结构化数据与可同步视图配置
 - 不负责业务正文文件的 Git 同步
+- `conversations.csv` 与 `insights.csv` 属于必需结构化文件，不允许在重建导入时静默跳过
 
 不负责：
 
@@ -559,6 +583,7 @@ flowchart TD
 
 - 检查数据库索引存在但文件缺失
 - 检查文件存在但索引缺失
+- 检查 Mermaid 节点动作绑定是否因源码变更而失效
 - 检查工作流节点未绑定动作
 - 检查项目节点未绑定工作流
 - 检查绑定关系引用不存在对象
@@ -686,7 +711,7 @@ flowchart TD
 
 1. `M06` Prompt 模块
 2. `M07` Workflow 模块
-3. `M08` Project / ProjectNode 模块
+3. `M08` Solution / Project / ProjectNode 模块
 4. `M09` Project 视图配置模块
 
 目标：
