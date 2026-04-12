@@ -1,4 +1,4 @@
-# 个人 AI 工作流导航器数据库表结构设计 v1
+﻿# 个人 AI 工作流导航器数据库表结构设计 v1
 
 ## 1. 文档目标
 
@@ -57,7 +57,7 @@ SQLite 是运行时元数据、关系和查询能力的唯一数据源。
 - 若 `summaries/` 非空，则必须进行二次提醒
 - 二次提醒后允许“先转存到 `summaryArchives/` 再删除”或“直接删除”
 - 若删除的是中间节点，则应先将其直接子节点改写为根层关系，再删除当前节点
-- `chatLogs/` 不触发二次提醒
+- `deliberations/` 不触发二次提醒
 - 若总结转存失败，则应用层必须中止删除，避免数据库删除与磁盘保护流程不一致
 
 ### 2.6 排序规则
@@ -111,8 +111,8 @@ SQLite 中布尔值统一使用 `INTEGER`，取值约定：
 9. `project_viewports`
 10. `solutions`
 11. `solution_projects`
-12. `conversation_records`
-13. `insight_records`
+12. `deliberations_records`
+13. `summary_records`
 
 说明：
 
@@ -186,7 +186,7 @@ SQLite 中布尔值统一使用 `INTEGER`，取值约定：
 | `id`              | `TEXT` | `PRIMARY KEY`         | UUIDv7                           |
 | `workflow_id`     | `TEXT` | `NOT NULL`            | 关联工作流                       |
 | `mermaid_node_id` | `TEXT` | `NOT NULL`            | Mermaid 节点标识                 |
-| `action_type`     | `TEXT` | `NOT NULL`            | `prompt` / `tool` / `link` |
+| `action_type`     | `TEXT` | `NOT NULL`            | `prompt` / `tool` |
 | `target_ref`      | `TEXT` | `NOT NULL DEFAULT ''` | 动作目标引用                     |
 | `created_at`      | `TEXT` | `NOT NULL`            | 创建时间                         |
 | `updated_at`      | `TEXT` | `NOT NULL`            | 更新时间                         |
@@ -204,7 +204,6 @@ SQLite 中布尔值统一使用 `INTEGER`，取值约定：
 - 当前版本不对 `target_ref` 建外键，因为它可能引用不同类型对象。
 - `action_type = prompt` 时由应用层校验 `target_ref` 是否存在于 `prompts.id`
 - `action_type = tool` 时由应用层校验 `target_ref` 是否存在于本地工具配置中的 `tool_key`
-- `action_type = link` 当前仅作为预留类型保留，v1 不实现实际执行能力
 
 建议索引：
 
@@ -480,9 +479,9 @@ SQLite 中布尔值统一使用 `INTEGER`，取值约定：
 
 - `dbSyncs/solution_projects.csv`
 
-### 5.12 `conversation_records`
+### 5.12 `deliberations_records`
 
-用途：保存节点对话记录目录入口。
+用途：保存节点推敲记录目录入口。
 
 建议字段：
 
@@ -490,7 +489,7 @@ SQLite 中布尔值统一使用 `INTEGER`，取值约定：
 | ------------------- | -------- | ------------------- | ---------------- |
 | `id`              | `TEXT` | `PRIMARY KEY`     | UUIDv7           |
 | `project_node_id` | `TEXT` | `NOT NULL UNIQUE` | 节点 ID          |
-| `folder_path`     | `TEXT` | `NOT NULL UNIQUE` | 对话目录相对路径 |
+| `folder_path`     | `TEXT` | `NOT NULL UNIQUE` | 推敲记录目录相对路径 |
 | `created_at`      | `TEXT` | `NOT NULL`        | 创建时间         |
 | `updated_at`      | `TEXT` | `NOT NULL`        | 更新时间         |
 
@@ -500,8 +499,8 @@ SQLite 中布尔值统一使用 `INTEGER`，取值约定：
 
 说明：
 
-- 当前设计下，一个节点对应一个对话目录入口
-- 目录内允许有多个实际对话文件
+- 当前设计下，一个节点对应一个推敲记录目录入口
+- 目录内允许有多个实际推敲记录文件
 - 目录内实际文件命名规则固定为 `yyyyMMdd-HHmmss__名称.md`
 - 最新文件仅按文件名中的时间戳判定，不按文件修改时间
 - 不符合命名规则的文件仍允许显示，但不参与“最新文件”判定
@@ -509,24 +508,23 @@ SQLite 中布尔值统一使用 `INTEGER`，取值约定：
 
 建议索引：
 
-- `idx_conversation_records_folder_path` on `folder_path`
+- `idx_deliberations_records_folder_path` on `folder_path`
 
 导出文件对应：
 
-- `dbSyncs/conversations.csv`
+- `dbSyncs/deliberations.csv`
 
-### 5.13 `insight_records`
+### 5.13 `summary_records`
 
-用途：保存节点总结/认知目录入口。
+用途：保存节点总结目录入口。
 
-建议字段：`3230`
+建议字段：
 
 | 字段名              | 类型     | 约束                           | 说明             |
 | ------------------- | -------- | ------------------------------ | ---------------- |
 | `id`              | `TEXT` | `PRIMARY KEY`                | UUIDv7           |
 | `project_node_id` | `TEXT` | `NOT NULL UNIQUE`            | 节点 ID          |
 | `folder_path`     | `TEXT` | `NOT NULL UNIQUE`            | 总结目录相对路径 |
-| `record_type`     | `TEXT` | `NOT NULL DEFAULT 'summary'` | 类型标记         |
 | `created_at`      | `TEXT` | `NOT NULL`                   | 创建时间         |
 | `updated_at`      | `TEXT` | `NOT NULL`                   | 更新时间         |
 
@@ -536,18 +534,18 @@ SQLite 中布尔值统一使用 `INTEGER`，取值约定：
 
 说明：
 
-- 当前设计下，一个节点对应一个总结/认知目录入口
+- 当前设计下，一个节点对应一个总结目录入口
 - `summaries/` 下的文件名不强制要求时间戳格式
 - 总结文件以人工编辑和整理为主
 - 文件列表中的所有文件都直接展示
 
 建议索引：
 
-- `idx_insight_records_record_type` on `record_type`
+- `idx_summary_records_folder_path` on `folder_path`
 
 导出文件对应：
 
-- `dbSyncs/insights.csv`
+- `dbSyncs/summaries.csv`
 
 ---
 
@@ -650,8 +648,8 @@ SQLite 中布尔值统一使用 `INTEGER`，取值约定：
 | `project_viewports`      | `project_viewports.csv`      |
 | `solutions`              | `solutions.csv`              |
 | `solution_projects`      | `solution_projects.csv`      |
-| `conversation_records`   | `conversations.csv`          |
-| `insight_records`        | `insights.csv`               |
+| `deliberations_records`   | `deliberations.csv`          |
+| `summary_records`        | `summaries.csv`              |
 
 说明：
 
@@ -676,8 +674,8 @@ SQLite 中布尔值统一使用 `INTEGER`，取值约定：
 9. `project_viewports`
 10. `solutions`
 11. `solution_projects`
-12. `conversation_records`
-13. `insight_records`
+12. `deliberations_records`
+13. `summary_records`
 
 ### 10.2 第二批可选项
 
@@ -700,6 +698,8 @@ SQLite 中布尔值统一使用 `INTEGER`，取值约定：
 4. 同步采用“一表一文件”的 CSV 导出方案，数据库表结构与同步文件结构一一对应。
 5. Project 节点坐标与最终视角属于可同步视图配置数据，使用 `project_node_layouts` 与 `project_viewports` 单独建表，不并入 `project_nodes` 或 `projects`。
 6. `active_project_node_id` 与 `active_workflow_node_id` 属于各端本地运行时缓存，不进入共享数据库，也不参与同步。
-7. `chatLogs/` 采用 `yyyyMMdd-HHmmss__名称.md` 命名并按文件名时间戳判定最新文件，`summaries/` 不强制时间戳命名。
+7. `deliberations/` 采用 `yyyyMMdd-HHmmss__名称.md` 命名并按文件名时间戳判定最新文件，`summaries/` 不强制时间戳命名。
 8. 删除节点时的确认、总结转存与 `summaryArchives/` 保护流程属于应用层规则，不额外引入数据库表。
 9. 当前版本优先追求语义清晰、关系稳定、实现简单，而不是为高并发或多用户场景做过度设计。
+
+
