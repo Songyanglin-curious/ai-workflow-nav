@@ -1,0 +1,24 @@
+{
+  "name": "web",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "dependencies": {
+    "@vue-flow/core": "^1.48.2",
+    "mermaid": "^11.14.0",
+    "naive-ui": "^2.44.1",
+    "pinia": "^3.0.4",
+    "vue-router": "^5.0.4"
+  },
+  "devDependencies": {
+    "@types/node": "^25.6.0",
+    "vue-tsc": "^3.2.6"
+  }
+}
