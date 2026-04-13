@@ -1,72 +1,129 @@
-<template>
-  <section class="system-card">
-    <header>
-      <p class="eyebrow">System</p>
-      <h2>设置摘要页面装配壳</h2>
-      <p>按照当前约束，这里先只做展示型页面，不预设完整编辑流程，也不发明独立 settings API。</p>
-    </header>
+<script setup lang="ts">
+import { onMounted, ref } from 'vue';
 
-    <div class="summary-grid">
-      <article>
-        <strong>工具配置摘要</strong>
-        <p>后续复用已有系统接口返回的配置结果做展示。</p>
-      </article>
-      <article>
-        <strong>运行环境摘要</strong>
-        <p>保持只读，不在这里偷偷扩成新的服务端真值入口。</p>
-      </article>
-    </div>
-  </section>
+import { getStartupReport } from '../modules/system/startup/api.js';
+import SettingsPanel from '../modules/system/settings/components/SettingsPanel.vue';
+import { PageShell } from '../shared/components/index.js';
+import type { StartupReport } from '../../../shared/startup/index.js';
+
+const report = ref<StartupReport | null>(null);
+const loading = ref(false);
+const error = ref<string | null>(null);
+
+function getErrorMessage(nextError: unknown): string {
+  return nextError instanceof Error ? nextError.message : '设置摘要读取失败';
+}
+
+async function loadReport(): Promise<void> {
+  loading.value = true;
+  error.value = null;
+
+  try {
+    report.value = await getStartupReport();
+  } catch (nextError) {
+    error.value = getErrorMessage(nextError);
+  } finally {
+    loading.value = false;
+  }
+}
+
+onMounted(() => {
+  void loadReport();
+});
+</script>
+
+<template>
+  <PageShell title="设置摘要" description="当前设置页只展示已有系统级接口能稳定提供的配置摘要，不承接完整编辑流程。">
+    <section class="settings-page">
+      <header class="settings-page__hero">
+        <div>
+          <p class="settings-page__eyebrow">Settings</p>
+          <h2>本地配置与运行环境摘要</h2>
+          <p>
+            这里先按摘要页理解：复用现有启动报告展示运行环境状态，并对工具配置边界做只读说明，不扩展新的设置接口。
+          </p>
+        </div>
+
+        <div class="settings-page__hero-meta">
+          <span>当前模式</span>
+          <strong>只读摘要</strong>
+          <small>{{ report ? '已有系统级数据' : '等待读取' }}</small>
+        </div>
+      </header>
+
+      <SettingsPanel :report="report" :loading="loading" :error="error" />
+    </section>
+  </PageShell>
 </template>
 
 <style scoped>
-.system-card {
+.settings-page {
   display: grid;
-  gap: 18px;
+  gap: 20px;
 }
 
-.eyebrow {
-  margin: 0;
+.settings-page__hero {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 20px;
+  border-radius: 24px;
+  background:
+    radial-gradient(circle at top right, rgba(18, 113, 93, 0.16), transparent 30%),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.96), rgba(248, 250, 252, 0.94));
+  border: 1px solid rgba(15, 23, 42, 0.08);
+  box-shadow: 0 18px 40px rgba(15, 23, 42, 0.08);
+}
+
+.settings-page__eyebrow {
+  margin: 0 0 6px;
   color: #12715d;
   font-size: 12px;
-  letter-spacing: 0.14em;
+  letter-spacing: 0.12em;
   text-transform: uppercase;
 }
 
-h2 {
-  margin: 8px 0 10px;
-  font-size: 34px;
+.settings-page__hero h2 {
+  margin: 0;
+  font-size: 1.7rem;
 }
 
-header p:last-child {
+.settings-page__hero p {
   max-width: 760px;
-  margin: 0;
-  color: #6f6255;
+  margin: 8px 0 0;
+  color: #475569;
   line-height: 1.7;
 }
 
-.summary-grid {
+.settings-page__hero-meta {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 16px;
-}
-
-.summary-grid article {
-  padding: 18px;
+  gap: 4px;
+  min-width: 148px;
+  padding: 14px 16px;
   border-radius: 18px;
-  border: 1px solid rgba(120, 92, 56, 0.16);
-  background: rgba(255, 250, 242, 0.92);
+  background: rgba(15, 23, 42, 0.04);
+  border: 1px solid rgba(15, 23, 42, 0.08);
+  text-align: right;
 }
 
-.summary-grid p {
-  margin: 10px 0 0;
-  color: #6f6255;
-  line-height: 1.65;
+.settings-page__hero-meta span,
+.settings-page__hero-meta small {
+  color: #64748b;
 }
 
-@media (max-width: 720px) {
-  .summary-grid {
-    grid-template-columns: 1fr;
+.settings-page__hero-meta strong {
+  color: #0f172a;
+  font-size: 1.8rem;
+}
+
+@media (max-width: 820px) {
+  .settings-page__hero {
+    display: grid;
+  }
+
+  .settings-page__hero-meta {
+    text-align: left;
   }
 }
 </style>

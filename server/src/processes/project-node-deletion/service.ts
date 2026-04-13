@@ -1,4 +1,6 @@
-import { listDirectory, movePath, pathExists, removePath } from '../../infra/filesystem/index.js';
+import path from 'node:path';
+
+import { ensureDirectory, listDirectory, movePath, pathExists, removePath } from '../../infra/filesystem/index.js';
 import { runInTransaction, type SqliteDatabase } from '../../infra/db/index.js';
 import {
   resolveProjectPath,
@@ -75,6 +77,7 @@ async function archiveSummaries(
   }
 
   try {
+    await ensureDirectory(path.dirname(archivePath));
     await movePath(sourcePath, archivePath);
   } catch (error) {
     throw new ProjectNodeSummaryArchiveFailedError(`节点总结归档失败：${snapshot.projectNodeId}`, error);

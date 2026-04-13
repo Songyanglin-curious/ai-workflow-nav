@@ -1043,7 +1043,7 @@ server/src/processes/external-tools/
 server/src/processes/imports-exports/
 ├─ index.ts
 ├─ service.ts
-├─ repo.ts
+├─ csv.ts
 └─ errors.ts
 ```
 
@@ -1055,7 +1055,7 @@ server/src/processes/imports-exports/
 - 负责区分必须存在文件与内容合法性校验
 - 负责导入前校验
 - 负责导入执行
-- 协调 `repo.ts` 与 `infra/filesystem`
+- 直接协调 `infra/db`、`csv.ts` 与 `infra/filesystem`
 - 返回导出结果、导入结果等过程结果
 - 不处理 HTTP 请求解析、统一响应壳映射、底层 SQL 细节、通用文件系统实现
 
@@ -1066,41 +1066,17 @@ server/src/processes/imports-exports/
 - 默认零 domain 依赖
 - 当前不承接“缺文件后重建目录入口索引”的语义
 
-`imports-exports/repo.ts` 职责：
+`imports-exports/csv.ts` 职责：
 
-- 承接全局同步过程所需的数据库快照读取与全局重建写入入口
-- 方法优先按全局聚合语义命名
-- 不再按 `projectId` 主轴设计
-- 不提供万能查询方法
+- 承接导入导出过程内部使用的 CSV 读写与行列转换
+- 只表达 CSV 解析与序列化能力
+- 不承接同步过程编排
+- 不承接数据库或文件系统访问
 
-当前保留的最小方法集：
+当前保留的最小能力集：
 
-导出相关：
-
-- `getExportSnapshot()`
-
-导入相关：
-
-- `replaceImportSnapshot(payload)`
-
-补充边界：
-
-- `getExportSnapshot()` 返回导出所需的全局快照，至少覆盖：
-  - `prompts`
-  - `workflows`
-  - `workflow_node_actions`
-  - `projects`
-  - `project_nodes`
-  - `project_node_relations`
-  - `project_node_workflows`
-  - `project_node_layouts`
-  - `project_viewports`
-  - `solutions`
-  - `solution_projects`
-  - `deliberations_records`
-  - `summary_records`
-- `replaceImportSnapshot(payload)` 负责把导入后的全局数据重建进运行时数据库
-- repo 可以聚合，但对应的快照结构与 `manifest` 结构必须在 `shared/imports-exports` 中明确写死
+- `parseCsvRecords(text, columns)`
+- `stringifyCsvRows(rows)`
 
 `imports-exports/errors.ts` 职责：
 
@@ -1110,12 +1086,8 @@ server/src/processes/imports-exports/
 
 当前保留的最小错误集：
 
-- `ExportBuildFailed`
-- `ImportManifestInvalid`
-- `ImportRequiredFileMissing`
-- `ImportValidationFailed`
-- `ImportExecutionFailed`
-- `ImportRebuildFailed`
+- `ImportsExportsValidationError`
+- `ImportsExportsInternalError`
 
 当前不保留：
 
@@ -1131,7 +1103,7 @@ server/src/processes/imports-exports/
 - 作为 `imports-exports` 过程模块的统一对外出口
 - 导出 `service.ts` 的公共过程能力
 - 导出 `errors.ts` 中需要被外部识别的过程错误
-- 不直接暴露 `repo.ts`
+- 不直接暴露 `csv.ts`
 - 模块内部默认不通过 `index.ts` 相互导入
 
 #### 5.4.5 `inspections` 模块定稿
@@ -1141,9 +1113,7 @@ server/src/processes/imports-exports/
 ```text
 server/src/processes/inspections/
 ├─ index.ts
-├─ service.ts
-├─ repo.ts
-└─ errors.ts
+└─ service.ts
 ```
 
 `inspections/service.ts` 职责：
@@ -1152,22 +1122,21 @@ server/src/processes/inspections/
 - 负责发起巡检执行
 - 负责组织巡检范围与巡检项
 - 负责汇总巡检结果、严重级别、统计信息
-- 协调 `repo.ts`、`infra/filesystem` 与 `infra/tools`
+- 直接协调 `infra/db`、`infra/filesystem`、`infra/config` 与工具定义
 - 返回巡检结果或巡检报告
 - 不处理 HTTP、统一响应壳映射、底层 SQL 细节、通用文件系统实现
 
 依赖风格：
 
 - 默认零 domain 依赖
-- 默认通过“数据库聚合快照 + 文件系统状态 + 工具定义”完成全局巡检
+- 默认通过“数据库查询结果 + 文件系统状态 + 工具定义”完成全局巡检
 - 只有极少数规则确实无法脱离某个 domain 稳定只读逻辑时，才按需引入
 
 允许依赖：
 
-- `inspections/repo.ts`
-- `inspections/errors.ts`
 - `infra/filesystem`
-- `infra/tools`
+- `infra/config`
+- `infra/db`
 - `shared/inspections`
 - `shared/common`
 
@@ -1176,57 +1145,11 @@ server/src/processes/inspections/
 - 多个 domain 的写入 service
 - 默认依赖各 domain 的 service
 - `http`
-- `infra/db`
-
-`inspections/repo.ts` 职责：
-
-- 承接巡检过程所需的数据库快照读取入口
-- 方法贴着巡检过程语义命名
-- 不提供万能查询方法
-
-当前保留的最小方法集：
-
-- `getInspectionSnapshot()`
-
-补充边界：
-
-- `getInspectionSnapshot()` 返回巡检所需的全局聚合信息
-- 当前至少覆盖：
-  - `prompts`
-  - `workflows`
-  - `workflow_node_actions`
-  - `projects`
-  - `project_nodes`
-  - `project_node_relations`
-  - `project_node_workflows`
-  - `project_node_layouts`
-  - `project_viewports`
-  - `solutions`
-  - `solution_projects`
-  - `deliberations_records`
-  - `summary_records`
-
-`inspections/errors.ts` 职责：
-
-- 只承接巡检过程自身稳定且明确的错误语义
-- 不吞掉领域错误
-- 不把巡检发现的问题误定义成过程异常
-
-当前保留的最小错误集：
-
-- `InspectionExecutionFailed`
-- `InspectionSnapshotBuildFailed`
-
-补充边界：
-
-- 巡检项中的 `warning / error` 属于结果数据，不属于 `errors.ts`
 
 `inspections/index.ts` 职责：
 
 - 作为 `inspections` 过程模块的统一对外出口
 - 导出 `service.ts` 的公共过程能力
-- 导出 `errors.ts` 中需要被外部识别的过程错误
-- 不直接暴露 `repo.ts`
 - 模块内部默认不通过 `index.ts` 相互导入
 
 #### 5.4.6 `startup` 模块定稿
@@ -1237,8 +1160,8 @@ server/src/processes/inspections/
 server/src/processes/startup/
 ├─ index.ts
 ├─ service.ts
-├─ repo.ts
-└─ errors.ts
+├─ errors.ts
+└─ types.ts
 ```
 
 `startup/service.ts` 职责：
@@ -1255,13 +1178,13 @@ server/src/processes/startup/
 依赖风格：
 
 - 默认零 domain 依赖
-- 通过 `repo.ts + infra/workspace + infra/config + infra/db` 完成启动检查
+- 通过 `infra/workspace + infra/config + infra/db + infra/filesystem` 完成启动检查
 - 只有当确实需要复用某个稳定只读规则时，才按需引入 domain
 
 允许依赖：
 
-- `startup/repo.ts`
 - `startup/errors.ts`
+- `startup/types.ts`
 - `infra/workspace`
 - `infra/filesystem`
 - `infra/db`
@@ -1275,25 +1198,11 @@ server/src/processes/startup/
 - 默认依赖各 domain 的 service
 - `http`
 
-`startup/repo.ts` 职责：
+`startup/types.ts` 职责：
 
-- 承接启动检查过程所需的数据库侧聚合状态读取入口
-- 方法贴着启动检查语义命名
-- 不提供万能查询方法
-- 不负责配置、目录、文件、工具定义等非数据库检查
-
-当前保留的最小方法集：
-
-- `getStartupInspectionSnapshot()`
-
-补充边界：
-
-- 该方法只负责数据库侧聚合状态
-- 至少覆盖：
-  - 核心表是否存在
-  - 必要结构是否存在
-  - 运行时数据库是否可读写
-  - 必要元数据是否齐备
+- 承接启动检查项、状态值、报告结构等稳定类型
+- 只表达过程结果结构，不承接启动编排
+- 供 `service.ts`、`http` 与前后端共享契约映射时复用
 
 `startup/errors.ts` 职责：
 
@@ -1303,17 +1212,16 @@ server/src/processes/startup/
 
 当前保留的最小错误集：
 
-- `StartupInspectionFailed`
 - `StartupBlocked`
 
 补充边界：
 
 - 检查项结果仍然使用既有状态枚举，不新增结果状态值
-- `StartupInspectionFailed` 表示过程本身执行失败
 - `StartupBlocked` 表示根据检查规则，系统必须阻止启动的过程层错误语义
 
 当前不默认加入：
 
+- `StartupInspectionFailed`
 - `StartupInitializationFailed`
 - `StartupRepairFailed`
 
@@ -1322,7 +1230,7 @@ server/src/processes/startup/
 - 作为 `startup` 过程模块的统一对外出口
 - 导出 `service.ts` 的公共过程能力
 - 导出 `errors.ts` 中需要被外部识别的过程错误
-- 不直接暴露 `repo.ts`
+- 导出 `types.ts` 中需要被外部识别的稳定过程结果类型
 - 模块内部默认不通过 `index.ts` 相互导入
 
 与 `app` 的边界：
@@ -1412,7 +1320,7 @@ server/src/processes/workflow-runtime-actions/
 前端对应关系：
 
 - 前端不单独建立 `processes/` 层
-- 当前更接近 `web/src/modules/workflows/runtime-actions/` 的语义落点
+- 当前正式挂在 `web/src/modules/projects/project-nodes/runtime-actions/`
 
 ### 5.5 `infra`
 
@@ -1453,53 +1361,29 @@ infra/
 ```text
 server/src/infra/filesystem/
 ├─ index.ts
-├─ files.ts
-├─ directories.ts
-└─ errors.ts
+└─ filesystem.ts
 ```
 
-`files.ts` 职责：
+`filesystem.ts` 职责：
 
-- 承接通用文件级动作
+- 承接通用文件与目录动作
+- 统一暴露路径存在性、目录创建、文本读写、目录枚举、路径移动与删除能力
+- 不承接业务语义与路径推导
 
 当前保留的最小能力集：
 
-- `fileExists(path)`
+- `pathExists(path)`
 - `readTextFile(path)`
 - `writeTextFile(path, content)`
 - `appendTextFile(path, content)`
-- `copyFile(from, to)`
-- `moveFile(from, to)`
-- `deleteFile(path)`
-- `getFileStat(path)`
-
-边界：
-
-- 不做业务格式解析
-- 不做业务命名判断
-- 不做自动目标路径推导
-
-`directories.ts` 职责：
-
-- 承接通用目录级动作
-
-当前保留的最小能力集：
-
-- `directoryExists(path)`
 - `ensureDirectory(path)`
 - `listDirectory(path)`
-- `deleteDirectory(path)`
-- `clearDirectory(path)`
-
-语义区分：
-
-- `deleteDirectory(path)`：删除目录本身
-- `clearDirectory(path)`：清空目录内容但保留目录本身
+- `movePath(from, to)`
+- `removePath(path)`
 
 边界：
 
-- 不判断目录是否应该存在
-- 不判断目录是否属于某个 domain
+- 不判断目标路径属于哪个业务对象
 - 不承接归档策略判断
 
 路径输入前提规则：
@@ -1507,26 +1391,10 @@ server/src/infra/filesystem/
 - `filesystem` 只接收已经解析完成且通过上层合法性判断的路径
 - 不负责从业务 ID、相对片段、领域对象中推导路径
 
-`errors.ts` 职责：
-
-- 只承接文件系统基础设施层稳定且明确的错误语义
-- 不定义业务错误
-- 不重复定义 domain/process 已有错误
-
-当前保留的最小错误集：
-
-- `FileReadFailed`
-- `FileWriteFailed`
-- `FileDeleteFailed`
-- `DirectoryCreateFailed`
-- `DirectoryDeleteFailed`
-
 `index.ts` 职责：
 
 - 作为 `filesystem` 模块的统一对外出口
-- 导出 `files.ts`
-- 导出 `directories.ts`
-- 导出 `errors.ts`
+- 导出 `filesystem.ts`
 - 模块内部默认不通过 `index.ts` 相互导入
 
 #### 5.5.2 `infra/workspace` 模块定稿
@@ -1536,9 +1404,7 @@ server/src/infra/filesystem/
 ```text
 server/src/infra/workspace/
 ├─ index.ts
-├─ roots.ts
-├─ resolver.ts
-└─ errors.ts
+└─ workspace.ts
 ```
 
 模块定位：
@@ -1548,47 +1414,30 @@ server/src/infra/workspace/
 - 不承接目录生命周期决策
 - 不承接外部工具路由或业务级安全策略判断
 
-`roots.ts` 职责：
+`workspace.ts` 职责：
 
 - 校验 workspace root
 - 校验固定目录是否存在或可自动创建
 - 提供固定目录定位入口
-
-当前保留的最小能力集：
-
-- `validateWorkspaceRoot(path)`
-- `ensureWorkspaceDirectories()`
-- `getWorkspaceDirectories()`
-
-`resolver.ts` 职责：
-
 - 把相对路径解析为绝对路径
 - 校验目标路径是否仍位于允许根目录内
 - 返回已规范化、可交给 `infra/filesystem` 的路径
 
 当前保留的最小能力集：
 
-- `resolveWorkspacePath(relativePath, scope)`
-- `assertPathWithinAllowedRoots(path, scope)`
-
-`errors.ts` 职责：
-
-- 只承接 workspace 基础设施层稳定且明确的错误语义
-- 不定义业务错误
-
-当前保留的最小错误集：
-
-- `WorkspaceRootInvalid`
-- `WorkspaceDirectoryMissing`
-- `WorkspacePathResolutionFailed`
-- `WorkspacePathNotAllowed`
+- `createWorkspacePaths(rootPath)`
+- `getWorkspaceAllowedRoots(workspacePaths)`
+- `assertAllowedPath(path, allowedRoots)`
+- `resolveWorkspacePath(workspacePaths, relativePath, baseDirectoryPath)`
+- `resolvePromptPath(workspacePaths, relativePath)`
+- `resolveProjectPath(workspacePaths, relativePath)`
+- `resolveSyncPath(workspacePaths, relativePath)`
+- `resolveSummaryArchivePath(workspacePaths, relativePath)`
 
 `index.ts` 职责：
 
 - 作为 `workspace` 模块的统一对外出口
-- 导出 `roots.ts`
-- 导出 `resolver.ts`
-- 导出 `errors.ts`
+- 导出 `workspace.ts`
 - 模块内部默认不通过 `index.ts` 相互导入
 
 与 `filesystem` 的边界：
@@ -1730,7 +1579,7 @@ server/src/infra/tools/
 ```text
 server/src/infra/config/
 ├─ index.ts
-├─ loader.ts
+├─ config.ts
 ├─ schema.ts
 └─ errors.ts
 ```
@@ -1742,7 +1591,7 @@ server/src/infra/config/
 - 不承接启动策略判断
 - 不承接领域语义解释
 
-`loader.ts` 职责：
+`config.ts` 职责：
 
 - 读取配置文件
 - 解析配置文件内容
@@ -1750,12 +1599,13 @@ server/src/infra/config/
 
 当前保留的最小能力集：
 
-- `loadConfig()`
-- `configFileExists()`
+- `readConfigText(path)`
+- `parseConfigText(path, text)`
+- `loadLocalConfig(path)`
 
 补充边界：
 
-- `configFileExists()` 可以保留，但不扩展为配置访问器大全
+- 不扩展为配置访问器大全
 - 不默认新增 `getConfigValue()`、`getToolConfig()`、`getWorkspaceRoot()` 这类 accessor
 
 `schema.ts` 职责：
@@ -1788,7 +1638,7 @@ server/src/infra/config/
 `index.ts` 职责：
 
 - 作为 `config` 模块的统一对外出口
-- 导出 `loader.ts`
+- 导出 `config.ts`
 - 导出 `schema.ts`
 - 导出 `errors.ts`
 - 模块内部默认不通过 `index.ts` 相互导入
@@ -1960,6 +1810,34 @@ server/src/app/
 - 导出 `errors.ts`
 - 模块内部默认不通过 `index.ts` 相互导入
 
+### 5.8 `test`
+
+当前定稿结构如下：
+
+```text
+server/src/test/
+├─ test-workspace.ts
+└─ test-context.ts
+```
+
+`test-workspace.ts` 职责：
+
+- 承接服务端测试共用的临时工作区准备
+- 负责生成临时 `local.config.jsonc`
+- 负责复制 `sql/schema/v1/tables/` 到测试工作区
+- 不承接具体业务断言
+
+`test-context.ts` 职责：
+
+- 在 `test-workspace.ts` 基础上补齐临时 SQLite 打开与 migration 执行
+- 为 domain / process / http 测试提供最小可运行上下文
+- 不承接具体测试用例语义
+
+补充配置：
+
+- `server/tsconfig.test.json` 作为服务端测试编译入口
+- 服务端测试编译产物默认输出到 `server/.test-dist/`
+
 ## 6. `web`
 
 ### 6.1 技术栈与组织原则
@@ -1995,19 +1873,25 @@ server/src/app/
 ```text
 web/
 └─ src/
+   ├─ main.ts
+   ├─ App.vue
    ├─ app/
    ├─ pages/
    ├─ modules/
    ├─ runtime/
+   ├─ test/
    └─ shared/
 ```
 
 ### 6.3 二级目录定位
 
-- `app/`：前端应用装配层，负责 Vue 应用入口、路由装配、全局插件挂载、应用壳层与启动初始化
+- `main.ts`：浏览器入口，负责调用 `app/bootstrap.ts`
+- `App.vue`：应用根组件，负责提供全局壳层与 `RouterView`
+- `app/`：前端应用装配层，负责路由装配、全局插件挂载、应用启动初始化与联调级 smoke test
 - `pages/`：页面级组合层，负责将多个模块拼装成具体页面
 - `modules/`：前端业务模块层，承接业务语义、模块内交互、模块内组件与模块内数据获取
 - `runtime/`：前端运行时态与本地会话态层，使用 `Pinia` 承接不入库状态
+- `test/`：前端测试支撑层，承接 `Vitest` 通用 setup
 - `shared/`：前端内部共享层，承接前端统一 HTTP client、通用 UI 组件、通用组合式函数与纯工具函数
 
 ### 6.4 `app`
@@ -2016,26 +1900,14 @@ web/
 
 ```text
 web/src/app/
-├─ main.ts
-├─ App.vue
 ├─ bootstrap.ts
 ├─ router.ts
 ├─ routes.ts
 ├─ plugins.ts
-└─ error-handler.ts
+├─ error-handler.ts
+├─ minimal-workspace-smoke.test.js
+└─ process-capabilities-smoke.test.js
 ```
-
-`main.ts` 职责：
-
-- 作为浏览器入口文件
-- 创建 Vue 应用实例
-- 调用 `bootstrap.ts` 完成挂载
-
-`App.vue` 职责：
-
-- 作为应用根组件
-- 提供全局壳层与 `RouterView` 容器
-- 不承接具体业务模块逻辑
 
 `bootstrap.ts` 职责：
 
@@ -2075,6 +1947,18 @@ web/src/app/
 - 承接前端全局错误处理入口
 - 统一处理未捕获错误、Promise 异常与展示层降级逻辑
 - 不替代业务模块内的显式错误分支处理
+
+`minimal-workspace-smoke.test.js` 职责：
+
+- 承接 `T063` 的最小联调冒烟
+- 通过前端现有 API 调用真实临时服务，跑通 Prompt、Workflow、Project、ProjectNode、RuntimeActions 主链路
+- 不承接页面展示断言
+
+`process-capabilities-smoke.test.js` 职责：
+
+- 承接 `T064` 的过程型能力联调冒烟
+- 通过页面侧 API / composable 调用真实临时服务，跑通 startup、sync、inspections、deletion 主链路
+- 不承接通用模块单测语义
 
 ### 6.5 `pages`
 
@@ -2286,7 +2170,27 @@ web/src/shared/
 - 提供前端内部共享 UI 类型
 - 不替代前后端共享契约类型
 
-### 6.8 `modules`
+### 6.8 `test`
+
+当前定稿结构：
+
+```text
+web/src/test/
+└─ setup.ts
+```
+
+`setup.ts` 职责：
+
+- 承接 `Vitest` 通用测试初始化
+- 统一处理测试后的 DOM 清理
+- 不承接业务测试逻辑
+
+补充配置：
+
+- `web/vitest.config.ts` 作为前端测试运行入口
+- 默认同时容纳组件 / composable 单测与联调级 smoke test
+
+### 6.9 `modules`
 
 前端展示层当前仍按业务模块拆分，不单独引入前端 `processes` 层。
 
@@ -2808,7 +2712,7 @@ web/src/modules/system/
 - 设置页当前只允许复用既有系统级接口返回的可展示配置摘要
 - 待配置读取契约正式化后，再决定是否补独立的 `settings/api.ts`
 
-### 6.9 页面与模块映射
+### 6.10 页面与模块映射
 
 当前推荐映射关系如下：
 
@@ -2821,7 +2725,7 @@ web/src/modules/system/
 - `StartupPage.vue` -> `modules/system/startup`
 - `SettingsPage.vue` -> `modules/system/settings`
 
-### 6.10 当前结论
+### 6.11 当前结论
 
 当前版本 `web` 侧代码文件组织正式结论如下：
 

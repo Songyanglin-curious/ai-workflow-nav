@@ -1,5 +1,4 @@
 import path from 'node:path';
-import { fileURLToPath } from 'node:url';
 
 import {
   readConfigText,
@@ -7,7 +6,11 @@ import {
   localConfigSchema,
   type LocalConfig,
 } from '../../infra/config/index.js';
-import { type SqliteDatabase, runMigrations } from '../../infra/db/index.js';
+import {
+  type SqliteDatabase,
+  resolveSchemaDirectoryPath,
+  runMigrations,
+} from '../../infra/db/index.js';
 import { ensureDirectory, pathExists } from '../../infra/filesystem/index.js';
 import { type WorkspacePaths } from '../../infra/workspace/index.js';
 import type { StartupService, StartupServiceOptions } from './types.js';
@@ -28,10 +31,6 @@ const fixedWorkspaceDirectories = [
   'projectsDirectoryPath',
   'summaryArchivesDirectoryPath',
 ] as const satisfies ReadonlyArray<keyof WorkspacePaths>;
-
-const defaultSchemaDirectoryPath = fileURLToPath(
-  new URL('../../../../sql/schema/v1/tables/', import.meta.url),
-);
 
 function createTimestamp(): string {
   return new Date().toISOString();
@@ -252,7 +251,8 @@ async function checkSchemaExecuted(
 
 export function createStartupService(options: StartupServiceOptions): StartupService {
   const { database, workspacePaths } = options;
-  const schemaDirectoryPath = options.schemaDirectoryPath ?? defaultSchemaDirectoryPath;
+  const schemaDirectoryPath =
+    options.schemaDirectoryPath ?? resolveSchemaDirectoryPath(workspacePaths.rootPath);
 
   ensureStartupReportTable(database);
 

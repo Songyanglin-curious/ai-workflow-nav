@@ -1,0 +1,26 @@
+{
+  // 本地配置版本。当前实现只要求是整数版本号。
+  "version": 1,
+
+  // 工作区根目录。这里直接指向当前仓库根目录。
+  "workspaceRoot": "D:/code/ai-workflow-nav",
+
+  // 服务端监听端口。
+  "server": {
+    "port": 3000
+  },
+
+  // 当前机器尚未确认默认外部工具，先留空。
+  "tools": [],
+
+  // 当前不预设扩展名兜底路由。
+  "routes": [],
+
+  // 保持保守安全策略，不允许任意绝对路径。
+  "security": {
+    "allowAbsolutePaths": false,
+    "allowedRoots": [
+      "D:/code/ai-workflow-nav"
+    ]
+  }
+}

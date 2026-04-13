@@ -1,72 +1,124 @@
-<template>
-  <section class="system-card">
-    <header>
-      <p class="eyebrow">System</p>
-      <h2>巡检页面装配壳</h2>
-      <p>用于挂载巡检执行按钮、结果摘要和问题表格，页面层不重复判断后端错误语义。</p>
-    </header>
+<script setup lang="ts">
+import { NAlert } from 'naive-ui';
 
-    <div class="system-card__grid">
-      <article>
-        <strong>执行入口</strong>
-        <p>后续由 `modules/system/inspections` 提供执行与刷新逻辑。</p>
-      </article>
-      <article>
-        <strong>结果展示</strong>
-        <p>承接严重级别、对象标识和修复建议的页面级排布。</p>
-      </article>
-    </div>
-  </section>
+import InspectionIssueTable from '../modules/system/inspections/components/InspectionIssueTable.vue';
+import InspectionRunButton from '../modules/system/inspections/components/InspectionRunButton.vue';
+import InspectionSummary from '../modules/system/inspections/components/InspectionSummary.vue';
+import { useInspections } from '../modules/system/inspections/composables.js';
+import { PageShell } from '../shared/components/index.js';
+
+const {
+  result,
+  items,
+  hasResult,
+  loading,
+  error,
+  lastRunAt,
+  execute,
+} = useInspections();
+</script>
+
+<template>
+  <PageShell title="系统巡检" description="这里用于显式执行一致性巡检，并查看当前工作区的数据、文件与绑定关系问题。">
+    <template #actions>
+      <InspectionRunButton :loading="loading" :has-result="hasResult" @run="execute" />
+    </template>
+
+    <section class="inspections-page">
+      <header class="inspections-page__hero">
+        <div>
+          <p class="inspections-page__eyebrow">Inspections</p>
+          <h2>一致性问题集中查看</h2>
+          <p>
+            当前版本不提供巡检历史，也不会在页面层自动修复异常。每次点击按钮都会重新扫描并返回本次结果。
+          </p>
+        </div>
+
+        <div class="inspections-page__hero-meta">
+          <span>最近结果</span>
+          <strong>{{ result?.summary.total ?? '--' }}</strong>
+          <small>{{ hasResult ? '条问题' : '等待执行' }}</small>
+        </div>
+      </header>
+
+      <n-alert v-if="error" type="error" :bordered="false">
+        {{ error }}
+      </n-alert>
+
+      <InspectionSummary :result="result" :last-run-at="lastRunAt" />
+      <InspectionIssueTable :items="items" :has-result="hasResult" />
+    </section>
+  </PageShell>
 </template>
 
 <style scoped>
-.system-card {
+.inspections-page {
   display: grid;
-  gap: 18px;
+  gap: 20px;
 }
 
-.eyebrow {
-  margin: 0;
+.inspections-page__hero {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 20px;
+  border-radius: 24px;
+  background:
+    radial-gradient(circle at top right, rgba(18, 113, 93, 0.16), transparent 30%),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.96), rgba(248, 250, 252, 0.94));
+  border: 1px solid rgba(15, 23, 42, 0.08);
+  box-shadow: 0 18px 40px rgba(15, 23, 42, 0.08);
+}
+
+.inspections-page__eyebrow {
+  margin: 0 0 6px;
   color: #12715d;
   font-size: 12px;
-  letter-spacing: 0.14em;
+  letter-spacing: 0.12em;
   text-transform: uppercase;
 }
 
-h2 {
-  margin: 8px 0 10px;
-  font-size: 34px;
+.inspections-page__hero h2 {
+  margin: 0;
+  font-size: 1.7rem;
 }
 
-header p:last-child {
+.inspections-page__hero p {
   max-width: 760px;
-  margin: 0;
-  color: #6f6255;
+  margin: 8px 0 0;
+  color: #475569;
   line-height: 1.7;
 }
 
-.system-card__grid {
+.inspections-page__hero-meta {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 16px;
-}
-
-.system-card__grid article {
-  padding: 18px;
+  gap: 4px;
+  min-width: 148px;
+  padding: 14px 16px;
   border-radius: 18px;
-  border: 1px solid rgba(120, 92, 56, 0.16);
-  background: rgba(255, 250, 242, 0.92);
+  background: rgba(15, 23, 42, 0.04);
+  border: 1px solid rgba(15, 23, 42, 0.08);
+  text-align: right;
 }
 
-.system-card__grid p {
-  margin: 10px 0 0;
-  color: #6f6255;
-  line-height: 1.65;
+.inspections-page__hero-meta span,
+.inspections-page__hero-meta small {
+  color: #64748b;
 }
 
-@media (max-width: 720px) {
-  .system-card__grid {
-    grid-template-columns: 1fr;
+.inspections-page__hero-meta strong {
+  color: #0f172a;
+  font-size: 1.8rem;
+}
+
+@media (max-width: 820px) {
+  .inspections-page__hero {
+    display: grid;
+  }
+
+  .inspections-page__hero-meta {
+    text-align: left;
   }
 }
 </style>

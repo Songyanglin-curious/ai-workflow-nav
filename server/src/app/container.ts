@@ -10,6 +10,7 @@ import {
   type SqliteDatabase,
   closeDatabase,
   openDatabase,
+  resolveSchemaDirectoryPath,
   runMigrations,
 } from '../infra/db/index.js';
 import {
@@ -104,10 +105,6 @@ function getDefaultWorkspaceRootPath(): string {
   return fileURLToPath(new URL('../../../', import.meta.url));
 }
 
-function getSchemaDirectoryPath(): string {
-  return fileURLToPath(new URL('../../../sql/schema/v1/tables/', import.meta.url));
-}
-
 async function ensureWorkspaceDirectories(workspacePaths: WorkspacePaths): Promise<void> {
   await ensureDirectory(workspacePaths.dbDirectoryPath);
   await ensureDirectory(workspacePaths.syncDirectoryPath);
@@ -128,7 +125,10 @@ export async function createAppContainer(options: CreateAppContainerOptions = {}
   });
 
   try {
-    const migrationResult = await runMigrations(database, getSchemaDirectoryPath());
+    const migrationResult = await runMigrations(
+      database,
+      resolveSchemaDirectoryPath(workspacePaths.rootPath),
+    );
     const externalTools = createExternalToolsService({
       config,
       workspacePaths,

@@ -4,5 +4,11 @@
     "noEmit": false,
     "outDir": "dist",
     "sourceMap": true
-  }
+  },
+  "exclude": [
+    "dist",
+    "node_modules",
+    "src/**/*.test.ts",
+    "src/test/**/*.ts"
+  ]
 }

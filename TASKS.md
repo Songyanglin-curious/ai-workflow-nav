@@ -432,28 +432,28 @@
 - 依赖：`T037` `T042` `T043`
 - 完成标准：Solution 页面闭合
 
-### [ ] T056 实现 `modules/system/inspections`
+### [x] T056 实现 `modules/system/inspections`
 
 - 目标：完成巡检执行与结果展示
 - 主要范围：`web/src/modules/system/inspections/`
 - 依赖：`T038` `T042` `T043`
 - 完成标准：巡检页面闭合
 
-### [ ] T057 实现 `modules/system/sync`
+### [x] T057 实现 `modules/system/sync`
 
 - 目标：完成导入导出交互与结果展示
 - 主要范围：`web/src/modules/system/sync/`
 - 依赖：`T038` `T042` `T043`
 - 完成标准：同步页面闭合
 
-### [ ] T058 实现 `modules/system/startup`
+### [x] T058 实现 `modules/system/startup`
 
 - 目标：完成启动报告与手动自检页面交互
 - 主要范围：`web/src/modules/system/startup/`
 - 依赖：`T038` `T042` `T043`
 - 完成标准：启动报告页面闭合
 
-### [ ] T059 实现 `modules/system/settings`
+### [x] T059 实现 `modules/system/settings`
 
 - 目标：完成设置页展示与工具配置摘要展示
 - 主要范围：`web/src/modules/system/settings/`
@@ -463,42 +463,42 @@
 
 ## 阶段 H：联调、测试与收口
 
-### [ ] T060 建立 SQL 初始化与迁移验证链路
+### [x] T060 建立 SQL 初始化与迁移验证链路
 
 - 目标：验证 SQL schema、表结构与运行时数据库初始化可用
 - 主要范围：`sql/` `server/src/infra/db/`
 - 依赖：`T011`
 - 完成标准：表结构可按既定顺序落库
 
-### [ ] T061 补齐服务端单元测试
+### [x] T061 补齐服务端单元测试
 
 - 目标：为 domains、processes、http schema/presenter 补测试
 - 主要范围：`server/`
 - 依赖：`T018` 至 `T039`
 - 完成标准：主链路与关键错误语义有测试覆盖
 
-### [ ] T062 补齐前端模块测试
+### [x] T062 补齐前端模块测试
 
 - 目标：为关键模块状态、主要页面交互与组件边界补测试
 - 主要范围：`web/`
 - 依赖：`T040` 至 `T059`
 - 完成标准：核心页面主链路可验证
 
-### [ ] T063 完成最小可运行联调
+### [x] T063 完成最小可运行联调
 
 - 目标：跑通 Prompt、Workflow、Project、ProjectNode、RuntimeActions 主链路
 - 主要范围：`server/` `web/`
 - 依赖：`T039` `T044` `T045` `T046` `T047` `T049` `T051` `T052`
 - 完成标准：核心工作区可完成从数据到交互的最小闭环
 
-### [ ] T064 完成过程型能力联调
+### [x] T064 完成过程型能力联调
 
 - 目标：跑通 deletion、imports-exports、inspections、startup 主链路
 - 主要范围：`server/` `web/`
 - 依赖：`T038` `T048` `T050` `T056` `T057` `T058`
 - 完成标准：显式过程能力可从页面触达并闭合
 
-### [ ] T065 完成文档回写与实现收口
+### [x] T065 完成文档回写与实现收口
 
 - 目标：把实现过程中确认的细节回写到文档，并清理偏差
 - 主要范围：`docs/`
