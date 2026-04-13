@@ -205,7 +205,7 @@
 - 一个 Mermaid 节点当前最多绑定一个主动作
 - 节点允许不绑定动作
 - `action_type = prompt` 时，`target_ref` 指向 `Prompt.id`
-- `action_type = tool` 时，`target_ref` 指向本地工具配置中的 `tool_key`
+- `action_type = tool` 时，`target_ref` 指向本地工具配置中的 `toolKey`
 - 保存绑定关系时，必须基于当前 Mermaid 节点集合做差异比对并清理失效绑定
 
 ### 6.4 Project
@@ -774,7 +774,7 @@
 
 `tools` 用于定义可执行工具，建议字段包含：
 
-- `tool_key`
+- `toolKey`
 - `label`
 - `enabled`
 - `platform`
@@ -805,7 +805,7 @@
 
 ### 12.4 路由与业务绑定边界
 
-- 业务层已经通过 `tool_key` 指定工具时，优先使用业务绑定
+- 业务层已经通过 `toolKey` 指定工具时，优先使用业务绑定
 - `routes` 只用于默认兜底，不替代表达业务语义
 - 当前版本 `routes.match` 先只支持按扩展名匹配
 
@@ -970,7 +970,7 @@
 5. 节点长期状态与运行时状态必须拆开管理。
 6. 项目和节点目录采用“初始名称 + `__` + shortId”命名并在创建后保持稳定。
 7. 当前版本采用“多文件 CSV，一表一文件”的同步导出方案。
-8. 外部工具配置采用 `JSONC` 结构化配置，业务层只保存 `tool_key` 引用。
+8. 外部工具配置采用 `JSONC` 结构化配置，业务层只保存 `toolKey` 引用。
 9. Project 节点坐标与最终视角属于可同步视图配置数据，需要单独入库并参与同步。
 10. `active_project_node_id` 与 `active_workflow_node_id` 只保存在网站前端本地缓存中，不入库也不参与同步。
 11. `deliberations/` 采用 `yyyyMMdd-HHmmss__名称.md` 命名并按文件名时间戳判定最新文件，`summaries/` 不强制时间戳命名。

@@ -396,7 +396,7 @@ Project 视图配置当前优先使用以下错误语义：
 
 - `targetName` 为便于前端展示的名称
 - `actionType = prompt` 时，`targetName` 取 Prompt 名称
-- `actionType = tool` 时，`targetName` 取工具显示名；取不到时可退化为 `tool_key`
+- `actionType = tool` 时，`targetName` 取工具显示名；取不到时可退化为 `toolKey`
 - `failureReason`：动作不可执行时的失败原因；无失败时为 `null`
 
 当前版本规则：
@@ -426,7 +426,7 @@ Project 视图配置当前优先使用以下错误语义：
 ```json
 {
   "actionType": "tool",
-  "tool_key": "openai-cli",
+  "toolKey": "openai-cli",
   "launched": true
 }
 ```
@@ -507,7 +507,7 @@ Project 视图配置当前优先使用以下错误语义：
    - 不由服务端直接复制到系统剪贴板
 2. `tool`
 
-   - 解析目标 `tool_key`
+   - 解析目标 `toolKey`
    - 调用本地工具执行能力
    - 返回是否已发起执行
 错误码建议：

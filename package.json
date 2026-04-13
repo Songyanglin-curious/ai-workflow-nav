@@ -2,14 +2,18 @@
   "name": "ai-workflow-nav",
   "private": true,
   "version": "0.1.0",
-  "type": "module",
   "scripts": {
-    "dev": "vite",
-    "build": "vite build",
-    "preview": "vite preview"
-  },
-  "devDependencies": {
-    "vite": "^8.0.8"
+    "dev:server": "pnpm --filter @ai-workflow-nav/server dev",
+    "dev:web": "pnpm --filter @ai-workflow-nav/web dev",
+    "build:shared": "pnpm --filter @ai-workflow-nav/shared build",
+    "build:server": "pnpm --filter @ai-workflow-nav/server build",
+    "build:web": "pnpm --filter @ai-workflow-nav/web build",
+    "typecheck:shared": "pnpm --filter @ai-workflow-nav/shared typecheck",
+    "typecheck:server": "pnpm --filter @ai-workflow-nav/server typecheck",
+    "typecheck:web": "pnpm --filter @ai-workflow-nav/web typecheck",
+    "test:shared": "pnpm --filter @ai-workflow-nav/shared test",
+    "test:server": "pnpm --filter @ai-workflow-nav/server test",
+    "test:web": "pnpm --filter @ai-workflow-nav/web test"
   },
   "packageManager": "pnpm@10.33.0+sha512.10568bb4a6afb58c9eb3630da90cc9516417abebd3fabbe6739f0ae795728da1491e9db5a544c76ad8eb7570f5c4bb3d6c637b2cb41bfdcdb47fa823c8649319"
 }

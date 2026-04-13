@@ -1,24 +1,27 @@
 {
-  "name": "web",
-  "version": "1.0.0",
-  "description": "",
-  "main": "index.js",
+  "name": "@ai-workflow-nav/web",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "dev": "vite",
+    "build": "vite build",
+    "typecheck": "vue-tsc --noEmit -p tsconfig.json",
+    "test": "node --test"
   },
-  "keywords": [],
-  "author": "",
-  "license": "ISC",
-  "type": "commonjs",
   "dependencies": {
     "@vue-flow/core": "^1.48.2",
     "mermaid": "^11.14.0",
     "naive-ui": "^2.44.1",
     "pinia": "^3.0.4",
+    "vue": "^3.5.22",
     "vue-router": "^5.0.4"
   },
   "devDependencies": {
+    "@vitejs/plugin-vue": "^6.0.1",
     "@types/node": "^25.6.0",
+    "typescript": "^6.0.2",
+    "vite": "^8.0.8",
     "vue-tsc": "^3.2.6"
   }
 }

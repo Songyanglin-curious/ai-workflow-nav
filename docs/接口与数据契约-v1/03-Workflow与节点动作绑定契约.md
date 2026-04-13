@@ -392,7 +392,7 @@ Workflow 资源当前优先使用以下错误语义：
 当前语义：
 
 - `actionType = prompt` 时，`targetRef` 指向 `Prompt.id`
-- `actionType = tool` 时，`targetRef` 指向本地工具配置中的 `tool_key`
+- `actionType = tool` 时，`targetRef` 指向本地工具配置中的 `toolKey`
 
 ### 9.5 列表接口
 
@@ -441,7 +441,7 @@ Workflow 资源当前优先使用以下错误语义：
 - 创建时必须校验目标 `workflowId` 存在
 - 创建时必须基于当前工作流的 `mermaidSource` 校验 `mermaidNodeId` 是否存在于节点集合中
 - `actionType = prompt` 时必须校验 `targetRef` 对应的 Prompt 存在
-- `actionType = tool` 时必须校验 `targetRef` 对应的 `tool_key` 在本地工具配置中存在
+- `actionType = tool` 时必须校验 `targetRef` 对应的 `toolKey` 在本地工具配置中存在
 
 错误码建议：
 

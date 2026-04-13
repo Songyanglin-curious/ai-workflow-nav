@@ -203,7 +203,7 @@ SQLite 中布尔值统一使用 `INTEGER`，取值约定：
 
 - 当前版本不对 `target_ref` 建外键，因为它可能引用不同类型对象。
 - `action_type = prompt` 时由应用层校验 `target_ref` 是否存在于 `prompts.id`
-- `action_type = tool` 时由应用层校验 `target_ref` 是否存在于本地工具配置中的 `tool_key`
+- `action_type = tool` 时由应用层校验 `target_ref` 是否存在于本地工具配置中的 `toolKey`
 
 建议索引：
 
@@ -603,7 +603,7 @@ SQLite 中布尔值统一使用 `INTEGER`，取值约定：
 以下字段当前不建议做数据库级外键：
 
 - `workflow_node_actions.target_ref`
-- 所有引用本地工具配置 `tool_key` 的字段
+- 所有引用本地工具配置 `toolKey` 的字段
 
 原因：
 
