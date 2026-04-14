@@ -124,7 +124,7 @@ dist
 
 # Stores VSCode versions used for testing VSCode extensions
 .vscode-test
-
+.vscode/
 # yarn v3
 .pnp.*
 .yarn/*
@@ -137,3 +137,5 @@ dist
 # Vite logs files
 vite.config.js.timestamp-*
 vite.config.ts.timestamp-*
+# Trae logs files
+.trae/
