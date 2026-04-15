@@ -13,7 +13,6 @@ import {
 import {
   NButton,
   NCard,
-  NConfigProvider,
   NEmpty,
   NForm,
   NFormItem,
@@ -28,7 +27,6 @@ import {
   NTooltip,
 } from 'naive-ui'
 import type { SelectOption } from 'naive-ui'
-import { naiveThemeOverrides } from '../../app/theme/tokens'
 import { usePromptPage } from './composables/usePromptPage'
 
 const {
@@ -75,263 +73,261 @@ const categorySelectOptions = computed(
 </script>
 
 <template>
-  <n-config-provider :theme-overrides="naiveThemeOverrides">
-    <div :class="['prompt-page', { 'prompt-page--expanded': sidebarExpanded }]">
-      <n-card
-        size="small"
-        :bordered="false"
-        :class="['prompt-page__panel', 'prompt-page__sidebar', { 'prompt-page__sidebar--expanded': sidebarExpanded }]"
-      >
-        <template #header>
-          <div class="prompt-page__sidebar-header">
-            <span>提示词</span>
-            <n-space :size="6" align="center">
-              <n-text depth="3">{{ filteredPrompts.length }} 条</n-text>
-              <n-tooltip trigger="hover">
-                <template #trigger>
-                  <n-button quaternary circle class="prompt-page__toggle-button" @click="toggleSidebarExpanded">
-                    <template #icon>
-                      <n-icon size="18">
-                        <chevron-back-outline v-if="sidebarExpanded" />
-                        <chevron-forward-outline v-else />
-                      </n-icon>
-                    </template>
-                  </n-button>
-                </template>
-                {{ sidebarExpanded ? '收起目录' : '展开目录' }}
-              </n-tooltip>
-            </n-space>
-          </div>
-        </template>
-
-        <div class="prompt-page__sidebar-top">
-          <n-space :size="8" align="center">
-            <div style="flex: 1;">
-              <n-input
-                :value="keyword"
-                size="small"
-                clearable
-                placeholder="搜索名称 / 描述"
-                @update:value="keyword = $event"
-              >
-                <template #prefix>
-                  <n-icon><search-outline /></n-icon>
-                </template>
-              </n-input>
-            </div>
-
+  <div :class="['prompt-page', { 'prompt-page--expanded': sidebarExpanded }]">
+    <n-card
+      size="small"
+      :bordered="false"
+      :class="['prompt-page__panel', 'prompt-page__sidebar']"
+    >
+      <template #header>
+        <div class="prompt-page__sidebar-header">
+          <span>提示词</span>
+          <n-space :size="6" align="center">
+            <n-text depth="3">{{ filteredPrompts.length }} 条</n-text>
             <n-tooltip trigger="hover">
               <template #trigger>
-                <n-button circle size="small" type="primary" secondary @click="handleCreate">
+                <n-button quaternary circle @click="toggleSidebarExpanded">
                   <template #icon>
-                    <n-icon><add-outline /></n-icon>
+                    <n-icon size="20">
+                      <chevron-back-outline v-if="sidebarExpanded" />
+                      <chevron-forward-outline v-else />
+                    </n-icon>
                   </template>
                 </n-button>
               </template>
-              新建提示词
+              {{ sidebarExpanded ? '收起目录' : '展开目录' }}
             </n-tooltip>
           </n-space>
         </div>
+      </template>
 
-        <div class="prompt-page__sidebar-scroll">
-          <div v-if="loading" class="prompt-page__empty-wrap">
-            <n-empty description="正在加载" size="small" />
-          </div>
-
-          <div v-else-if="filteredPrompts.length === 0" class="prompt-page__empty-wrap">
-            <n-empty description="没有匹配结果" size="small" />
-          </div>
-
-          <div :class="['prompt-list', { 'prompt-list--cards': sidebarExpanded }]">
-            <button
-              v-for="item in filteredPrompts"
-              :key="item.id"
-              type="button"
-              :class="[
-                'prompt-list__item',
-                { 'prompt-list__item--active': item.id === selectedId },
-                { 'prompt-list__item--expanded': sidebarExpanded },
-              ]"
-              @click="handleSelect(item.id)"
+      <div class="prompt-page__sidebar-top">
+        <n-space :size="8" align="center">
+          <div style="flex: 1;">
+            <n-input
+              :value="keyword"
+              size="small"
+              clearable
+              placeholder="搜索名称 / 描述"
+              @update:value="keyword = $event"
             >
-              <div class="prompt-list__item-head">
-                <div class="prompt-list__title">{{ item.title }}</div>
-                <n-tooltip trigger="hover">
-                  <template #trigger>
-                    <n-button
-                      circle
-                      size="tiny"
-                      quaternary
-                      class="prompt-page__copy-trigger"
-                      :disabled="!item.content"
-                      @click.stop="handleCopy(item.content)"
-                    >
-                      <template #icon>
-                        <n-icon><copy-outline /></n-icon>
-                      </template>
-                    </n-button>
-                  </template>
-                  复制提示词内容
-                </n-tooltip>
-              </div>
-              <div v-if="sidebarExpanded" class="prompt-list__description">
-                {{ item.description }}
-              </div>
-              <div v-if="sidebarExpanded" class="prompt-list__meta">
-                <span>{{ item.category }}</span>
-                <span>{{ item.updatedAt }}</span>
-              </div>
-            </button>
+              <template #prefix>
+                <n-icon><search-outline /></n-icon>
+              </template>
+            </n-input>
           </div>
-        </div>
-      </n-card>
 
-      <n-card
-        v-if="showDetail"
-        size="small"
-        :bordered="false"
-        :class="['prompt-page__panel', 'prompt-page__detail']"
-      >
-        <template #header>
-          <div class="prompt-page__detail-header">
-            <div class="prompt-page__detail-title">
-              <span>{{ detailTitle }}</span>
-              <n-text depth="3">
-                {{ statusText }}
-                <template v-if="selectedUpdatedAt && !isCreating"> · {{ selectedUpdatedAt }}</template>
-              </n-text>
-            </div>
-
-            <n-space :size="6" align="center">
-              <n-button
-                v-if="isCreating"
-                size="small"
-                type="primary"
-                :disabled="!canSaveNewPrompt"
-                :loading="saving"
-                @click="handleSave"
-              >
+          <n-tooltip trigger="hover">
+            <template #trigger>
+              <n-button circle size="small" type="primary" secondary @click="handleCreate">
                 <template #icon>
-                  <n-icon><save-outline /></n-icon>
+                  <n-icon><add-outline /></n-icon>
                 </template>
-                确认新建
               </n-button>
+            </template>
+            新建提示词
+          </n-tooltip>
+        </n-space>
+      </div>
 
-              <n-popconfirm
-                v-if="canDelete"
-                positive-text="确认删除"
-                negative-text="取消"
-                @positive-click="handleDelete"
-              >
+      <div class="prompt-page__sidebar-scroll">
+        <div v-if="loading" class="prompt-page__empty-wrap">
+          <n-empty description="正在加载" size="small" />
+        </div>
+
+        <div v-else-if="filteredPrompts.length === 0" class="prompt-page__empty-wrap">
+          <n-empty description="没有匹配结果" size="small" />
+        </div>
+
+        <div :class="['prompt-list', { 'prompt-list--cards': sidebarExpanded }]">
+          <button
+            v-for="item in filteredPrompts"
+            :key="item.id"
+            type="button"
+            :class="[
+              'prompt-list__item',
+              { 'prompt-list__item--active': item.id === selectedId },
+              { 'prompt-list__item--expanded': sidebarExpanded },
+            ]"
+            @click="handleSelect(item.id)"
+          >
+            <div class="prompt-list__item-head">
+              <div class="prompt-list__title">{{ item.title }}</div>
+              <n-tooltip trigger="hover">
                 <template #trigger>
-                  <n-button circle size="small" quaternary type="error">
+                  <n-button
+                    circle
+                    size="tiny"
+                    quaternary
+                    class="prompt-page__copy-trigger"
+                    :disabled="!item.content"
+                    @click.stop="handleCopy(item.content)"
+                  >
                     <template #icon>
-                      <n-icon><trash-outline /></n-icon>
+                      <n-icon><copy-outline /></n-icon>
                     </template>
                   </n-button>
                 </template>
-                确认删除当前提示词吗？
-              </n-popconfirm>
-            </n-space>
-          </div>
-        </template>
-
-        <div class="prompt-page__detail-scroll">
-          <div v-if="!draft" class="prompt-page__empty-wrap prompt-page__empty-wrap--detail">
-            <n-empty description="请选择左侧提示词或新建" size="small" />
-          </div>
-
-          <n-form v-else label-placement="top" size="small">
-            <n-grid :cols="24" :x-gap="12">
-              <n-gi :span="16">
-                <n-form-item label="名称">
-                  <n-input
-                    :value="draft.title"
-                    placeholder="提示词名称"
-                    @update:value="handlePatchDraft({ title: $event })"
-                  />
-                </n-form-item>
-              </n-gi>
-
-              <n-gi :span="8">
-                <n-form-item label="分类">
-                  <n-select
-                    :value="draft.category"
-                    :options="categorySelectOptions"
-                    @update:value="handlePatchDraft({ category: $event as any })"
-                  />
-                </n-form-item>
-              </n-gi>
-
-              <n-gi :span="24">
-                <n-form-item label="描述">
-                  <n-input
-                    :value="draft.description"
-                    class="prompt-page__description-input"
-                    type="textarea"
-                    placeholder="提示词描述"
-                    :input-props="{ rows: 3 }"
-                    @update:value="handlePatchDraft({ description: $event })"
-                  />
-                </n-form-item>
-              </n-gi>
-
-              <n-gi :span="24">
-                <n-form-item label="提示词文件路径">
-                  <n-button
-                    text
-                    type="primary"
-                    :disabled="!selectedFilePath"
-                    @click="handlePromptPathClick"
-                  >
-                    {{ selectedFilePath || '暂无文件路径' }}
-                  </n-button>
-                </n-form-item>
-              </n-gi>
-
-              <n-gi :span="24">
-                <n-form-item>
-                  <template #label>
-                    <div class="prompt-page__content-label">
-                      <span>提示词内容</span>
-                      <n-tooltip trigger="hover">
-                        <template #trigger>
-                          <n-button
-                            circle
-                            size="tiny"
-                            quaternary
-                            class="prompt-page__copy-trigger"
-                            :disabled="!canCopy"
-                            @click="handleCopy()"
-                          >
-                            <template #icon>
-                              <n-icon>
-                                <checkmark-outline v-if="copyDone" />
-                                <copy-outline v-else />
-                              </n-icon>
-                            </template>
-                          </n-button>
-                        </template>
-                        {{ copyDone ? '已复制提示词内容' : '复制提示词内容' }}
-                      </n-tooltip>
-                    </div>
-                  </template>
-                  <n-input
-                    :value="selectedPromptContent"
-                    class="prompt-page__content-input"
-                    type="textarea"
-                    readonly
-                    :input-props="{ rows: 10 }"
-                    placeholder="暂无提示词内容"
-                  />
-                </n-form-item>
-              </n-gi>
-            </n-grid>
-          </n-form>
+                复制提示词内容
+              </n-tooltip>
+            </div>
+            <div v-if="sidebarExpanded" class="prompt-list__description">
+              {{ item.description }}
+            </div>
+            <div v-if="sidebarExpanded" class="prompt-list__meta">
+              <span>{{ item.category }}</span>
+              <span>{{ item.updatedAt }}</span>
+            </div>
+          </button>
         </div>
-      </n-card>
-    </div>
-  </n-config-provider>
+      </div>
+    </n-card>
+
+    <n-card
+      v-if="showDetail"
+      size="small"
+      :bordered="false"
+      :class="['prompt-page__panel', 'prompt-page__detail']"
+    >
+      <template #header>
+        <div class="prompt-page__detail-header">
+          <div class="prompt-page__detail-title">
+            <span>{{ detailTitle }}</span>
+            <n-text depth="3">
+              {{ statusText }}
+              <template v-if="selectedUpdatedAt && !isCreating"> · {{ selectedUpdatedAt }}</template>
+            </n-text>
+          </div>
+
+          <n-space :size="6" align="center">
+            <n-button
+              v-if="isCreating"
+              size="small"
+              type="primary"
+              :disabled="!canSaveNewPrompt"
+              :loading="saving"
+              @click="handleSave"
+            >
+              <template #icon>
+                <n-icon><save-outline /></n-icon>
+              </template>
+              确认新建
+            </n-button>
+
+            <n-popconfirm
+              v-if="canDelete"
+              positive-text="确认删除"
+              negative-text="取消"
+              @positive-click="handleDelete"
+            >
+              <template #trigger>
+                <n-button circle size="small" quaternary type="error">
+                  <template #icon>
+                    <n-icon><trash-outline /></n-icon>
+                  </template>
+                </n-button>
+              </template>
+              确认删除当前提示词吗？
+            </n-popconfirm>
+          </n-space>
+        </div>
+      </template>
+
+      <div class="prompt-page__detail-scroll">
+        <div v-if="!draft" class="prompt-page__empty-wrap prompt-page__empty-wrap--detail">
+          <n-empty description="请选择左侧提示词或新建" size="small" />
+        </div>
+
+        <n-form v-else label-placement="top" size="small">
+          <n-grid :cols="24" :x-gap="12">
+            <n-gi :span="16">
+              <n-form-item label="名称">
+                <n-input
+                  :value="draft.title"
+                  placeholder="提示词名称"
+                  @update:value="handlePatchDraft({ title: $event })"
+                />
+              </n-form-item>
+            </n-gi>
+
+            <n-gi :span="8">
+              <n-form-item label="分类">
+                <n-select
+                  :value="draft.category"
+                  :options="categorySelectOptions"
+                  @update:value="handlePatchDraft({ category: $event as any })"
+                />
+              </n-form-item>
+            </n-gi>
+
+            <n-gi :span="24">
+              <n-form-item label="描述">
+                <n-input
+                  :value="draft.description"
+                  class="prompt-page__description-input"
+                  type="textarea"
+                  placeholder="提示词描述"
+                  :input-props="{ rows: 3 }"
+                  @update:value="handlePatchDraft({ description: $event })"
+                />
+              </n-form-item>
+            </n-gi>
+
+            <n-gi :span="24">
+              <n-form-item label="提示词文件路径">
+                <n-button
+                  text
+                  type="primary"
+                  :disabled="!selectedFilePath"
+                  @click="handlePromptPathClick"
+                >
+                  {{ selectedFilePath || '暂无文件路径' }}
+                </n-button>
+              </n-form-item>
+            </n-gi>
+
+            <n-gi :span="24">
+              <n-form-item>
+                <template #label>
+                  <n-space :size="4" align="center">
+                    <span>提示词内容</span>
+                    <n-tooltip trigger="hover">
+                      <template #trigger>
+                        <n-button
+                          circle
+                          size="tiny"
+                          quaternary
+                          class="prompt-page__copy-trigger"
+                          :disabled="!canCopy"
+                          @click="handleCopy()"
+                        >
+                          <template #icon>
+                            <n-icon>
+                              <checkmark-outline v-if="copyDone" />
+                              <copy-outline v-else />
+                            </n-icon>
+                          </template>
+                        </n-button>
+                      </template>
+                      {{ copyDone ? '已复制提示词内容' : '复制提示词内容' }}
+                    </n-tooltip>
+                  </n-space>
+                </template>
+                <n-input
+                  :value="selectedPromptContent"
+                  class="prompt-page__content-input"
+                  type="textarea"
+                  readonly
+                  :input-props="{ rows: 10 }"
+                  placeholder="暂无提示词内容"
+                />
+              </n-form-item>
+            </n-gi>
+          </n-grid>
+        </n-form>
+      </div>
+    </n-card>
+  </div>
 </template>
 
 <style scoped>
@@ -374,10 +370,6 @@ const categorySelectOptions = computed(
   gap: var(--app-gap-sm);
   font-size: 13px;
   font-weight: 600;
-}
-
-.prompt-page__toggle-button :deep(.n-icon) {
-  font-size: 18px;
 }
 
 .prompt-page__sidebar-top {
@@ -494,16 +486,6 @@ const categorySelectOptions = computed(
   gap: var(--app-gap-sm);
   color: var(--app-text-secondary);
   font-size: 12px;
-}
-
-.prompt-page :deep(.n-form-item-label) {
-  padding-bottom: var(--app-gap-xs);
-}
-
-.prompt-page__content-label {
-  display: flex;
-  align-items: center;
-  gap: var(--app-gap-xs);
 }
 
 .prompt-page__copy-trigger {
