@@ -1,0 +1,58 @@
+﻿:root {
+  --app-bg-page: #efe7d6;
+  --app-bg-panel: #fffdf8;
+  --app-bg-panel-muted: #f8f3e8;
+  --app-border: #dfd3bf;
+  --app-border-hover: #c7b59a;
+  --app-text-primary: #2f2a23;
+  --app-text-secondary: #7a6f61;
+  --app-primary: #3f6fd8;
+  --app-primary-soft: #e9f1ff;
+  --app-danger: #d14343;
+  --app-danger-soft: #fff1f0;
+  --app-radius-sm: 6px;
+  --app-radius-md: 8px;
+  --app-gap-xs: 4px;
+  --app-gap-sm: 8px;
+  --app-gap-md: 12px;
+  color: var(--app-text-primary);
+  background: var(--app-bg-page);
+  font: 14px/1.5 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif;
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#app {
+  min-height: 100%;
+}
+
+body {
+  margin: 0;
+  min-height: 100svh;
+  background: var(--app-bg-page);
+}
+
+button,
+input,
+select,
+textarea {
+  font: inherit;
+}
+
+button {
+  cursor: pointer;
+}
+
+#app {
+  min-height: 100svh;
+}
